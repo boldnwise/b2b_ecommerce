@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test'
+import { csrfHeaderFromCookies } from './csrf.js'
 import { TEST_USERS } from './test-users.js'
 
 /**
@@ -29,5 +30,6 @@ export async function loginViaUi(page, { email, password } = TEST_USERS.buyer) {
 }
 
 export async function logoutViaApi(request) {
-  await request.post('/api/auth/logout')
+  const headers = csrfHeaderFromCookies(await request.storageState().then((s) => s.cookies))
+  await request.post('/api/auth/logout', { headers: headers ?? {} })
 }
