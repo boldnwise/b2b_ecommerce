@@ -30,11 +30,14 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/node_modules/.prisma        ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Application source + Prisma schema (needed by migrate deploy at runtime)
-COPY src    ./src
-COPY prisma ./prisma
+# Application source, Prisma schema/migrations, and one-off task scripts
+# (scripts/migrate-release.js, scripts/bootstrap-admin.js) in the same image
+COPY src     ./src
+COPY prisma  ./prisma
+COPY scripts ./scripts
 
-# Startup script: runs migrations then starts the server
+# Default: start the API only — no migrations at startup.
+# One-off migration task: run this image with the argument `migrate`.
 COPY scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 

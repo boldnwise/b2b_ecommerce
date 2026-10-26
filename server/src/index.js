@@ -14,6 +14,9 @@ const server = app.listen(env.port, async () => {
     {
       port: env.port,
       env: env.nodeEnv,
+      appEnv: env.isProd ? env.appEnv : undefined,
+      paymentProvider: env.paymentProvider,
+      startupSchemaDdl: env.runStartupMigrations,
       crossSiteCookies: env.useCrossSiteCookies,
       corsAllowedOrigins: env.corsAllowedOrigins,
       corsAllowedHeaders: env.corsAllowedHeaders,
@@ -21,18 +24,19 @@ const server = app.listen(env.port, async () => {
     '[startup] API listening',
   )
 
-  try {
-    const path = require('path')
-    const { ensureCatalogSchema } = require(path.join(__dirname, '../prisma/seed/catalog.js'))
-    const { ensureDefaultCategories } = require('./services/shopCategoryDbService.js')
-    const { ensureDefaultDealChargeConfigs } = require('./services/dealChargeService.js')
-    await ensureCatalogSchema(prisma)
-    await ensureDefaultCategories()
-    await ensureDefaultDealChargeConfigs(prisma)
-    logger.info('[startup] Catalog schema and default categories ensured successfully')
-  } catch (err) {
-    logger.error({ err }, '[startup] Failed to ensure database catalog schema/categories')
-  }
+  const path = require('path')
+  const { initializeDatabase } = require('./db/startupInit.js')
+  const { ensureCatalogSchema } = require(path.join(__dirname, '../prisma/seed/catalog.js'))
+  const { ensureDefaultCategories } = require('./services/shopCategoryDbService.js')
+  const { ensureDefaultDealChargeConfigs } = require('./services/dealChargeService.js')
+  await initializeDatabase({
+    env,
+    prisma,
+    logger,
+    ensureCatalogSchema,
+    ensureDefaultCategories,
+    ensureDefaultDealChargeConfigs,
+  })
 })
 
 server.on('error', (err) => {
