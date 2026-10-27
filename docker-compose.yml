@@ -11,8 +11,9 @@ version: "3.9"
 #
 # Database: the API uses DATABASE_URL from server/.env (Neon recommended).
 # The optional `postgres` service below is only for a fully local Docker DB stack.
-# This stack runs NODE_ENV=production, so SEED_DB=true and RUN_MIGRATIONS=true are refused at startup,
-# and RFQ_STORAGE_DRIVER=s3 (with RFQ_S3_BUCKET and AWS_REGION) is required.
+# This stack runs NODE_ENV=production, so SEED_DB=true and RUN_MIGRATIONS=true are refused at startup.
+# RFQ attachments default to local disk (RFQ_STORAGE_DRIVER=local). For AWS-like RFQ storage, set
+# RFQ_STORAGE_DRIVER=s3 plus RFQ_S3_BUCKET and AWS_REGION in server/.env (requires IAM/credentials in that environment).
 # Seed a local development database from the host instead (npm run db:seed).
 # ─────────────────────────────────────────────────────────────────────────────
 

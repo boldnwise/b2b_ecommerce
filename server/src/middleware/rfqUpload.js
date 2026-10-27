@@ -1,6 +1,3 @@
-const fs = require('fs')
-const path = require('path')
-const crypto = require('crypto')
 const multer = require('multer')
 const { AppError } = require('../utils/AppError.js')
 const {
@@ -8,9 +5,11 @@ const {
   validateRfqUploadFile,
   runOptionalVirusScan,
 } = require('../utils/rfqFileValidation.js')
-
-const UPLOAD_DIR = path.join(__dirname, '../../uploads/rfq')
-fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+const {
+  generateRfqStorageFilename,
+  saveRfqAttachment,
+  UPLOAD_DIR,
+} = require('../services/rfqAttachmentStorage.js')
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
@@ -18,17 +17,8 @@ const MAX_FILES = 5
 
 const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/jpg'])
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(sanitizeDisplayFilename(file.originalname)).toLowerCase()
-    const safeExt = ext && ext.length <= 8 ? ext : ''
-    cb(null, `${Date.now()}-${crypto.randomBytes(12).toString('hex')}${safeExt}`)
-  },
-})
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: MAX_DOCUMENT_BYTES,
     files: MAX_FILES,
@@ -61,7 +51,12 @@ async function buildRfqAttachments(files = []) {
   const attachments = []
 
   for (const file of files) {
-    const header = await fs.promises.readFile(file.path, { encoding: null }).then((buf) => buf.subarray(0, 8))
+    const buffer = file.buffer
+    if (!buffer || !buffer.length) {
+      throw new AppError('Invalid upload file', 400, 'VALIDATION_ERROR')
+    }
+
+    const header = buffer.subarray(0, 8)
     const validated = validateRfqUploadFile(file, { readHeaderBytes: header })
     const resolvedMime = validated.resolvedMime || file.mimetype
     const isImage = IMAGE_MIMES.has(resolvedMime)
@@ -74,11 +69,18 @@ async function buildRfqAttachments(files = []) {
       )
     }
 
-    await runOptionalVirusScan(file.path, { name: validated.safeName, mime: resolvedMime })
+    await runOptionalVirusScan(null, { name: validated.safeName, mime: resolvedMime })
+
+    const filename = generateRfqStorageFilename(file.originalname)
+    await saveRfqAttachment({
+      filename,
+      buffer,
+      mimeType: resolvedMime,
+    })
 
     attachments.push({
       name: validated.safeName,
-      url: `/api/quote-requests/attachments/file/${file.filename}`,
+      url: `/api/quote-requests/attachments/file/${filename}`,
       mimeType: resolvedMime,
       sizeBytes: file.size,
     })

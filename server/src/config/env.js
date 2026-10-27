@@ -191,6 +191,36 @@ const enablePublicRegistration = isProd
 
 const sentryDsn = optional('SENTRY_DSN', '')
 
+// ─── RFQ attachment storage (local disk or private S3) ───────────────────────
+
+const rfqStorageDriverRaw = optional('RFQ_STORAGE_DRIVER', 'local').toLowerCase()
+if (rfqStorageDriverRaw !== 'local' && rfqStorageDriverRaw !== 's3') {
+  throw new Error('[config] RFQ_STORAGE_DRIVER must be "local" or "s3".')
+}
+const rfqStorageDriver = rfqStorageDriverRaw
+
+function normalizeRfqS3Prefix(raw) {
+  const trimmed = String(raw || 'rfq/').trim()
+  if (!trimmed) return 'rfq/'
+  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+}
+
+const rfqS3Prefix = normalizeRfqS3Prefix(optional('RFQ_S3_PREFIX', 'rfq/'))
+const rfqS3Bucket = optional('RFQ_S3_BUCKET', '')
+const awsRegion = optional('AWS_REGION', '')
+
+function assertRfqS3StorageConfig() {
+  if (rfqStorageDriver !== 's3') return
+  if (!rfqS3Bucket) {
+    throw new Error('[config] RFQ_S3_BUCKET is required when RFQ_STORAGE_DRIVER=s3.')
+  }
+  if (!awsRegion) {
+    throw new Error('[config] AWS_REGION is required when RFQ_STORAGE_DRIVER=s3.')
+  }
+}
+
+assertRfqS3StorageConfig()
+
 function assertProductionJwtSecret(secret) {
   if (!secret || secret.length < 32) {
     throw new Error(
@@ -279,5 +309,9 @@ module.exports = Object.freeze({
   sentryDsn,
   mainPortalProfileEnabled: optional('MAIN_PORTAL_PROFILE_ENABLED', 'false') === 'true',
   allowDummyDealPayments,
+  rfqStorageDriver,
+  rfqS3Bucket,
+  rfqS3Prefix,
+  awsRegion,
 })
 
