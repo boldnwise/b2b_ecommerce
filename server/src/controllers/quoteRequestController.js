@@ -35,10 +35,9 @@ const {
   paginate,
   isBuyerQuotationExpired,
 } = require('../services/quoteGroupService.js')
-const { buildRfqAttachments, UPLOAD_DIR } = require('../middleware/rfqUpload.js')
+const { buildRfqAttachments } = require('../middleware/rfqUpload.js')
 const { sanitizeDisplayFilename } = require('../utils/rfqFileValidation.js')
-const fs = require('fs')
-const path = require('path')
+const { serveRfqAttachment } = require('../services/rfqAttachmentStorage.js')
 
 const QUOTE_INCLUDE = {
   buyer: { select: USER_PUBLIC_SELECT },
@@ -1176,12 +1175,7 @@ const downloadAttachment = asyncHandler(async (req, res) => {
     throw new AppError('You do not have access to this attachment', 403, 'FORBIDDEN')
   }
 
-  const filePath = path.join(UPLOAD_DIR, filename)
-  if (!fs.existsSync(filePath)) {
-    throw new AppError('Attachment not found', 404, 'NOT_FOUND')
-  }
-
-  res.sendFile(filePath)
+  await serveRfqAttachment(filename, res)
 })
 
 module.exports = {

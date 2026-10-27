@@ -113,6 +113,38 @@ cd ../client && npm run test:e2e:ci
 
 ## Attachment storage
 
-RFQ files: `server/uploads/rfq/`. Downloads require auth via `GET /api/quote-requests/attachments/file/:filename`.
+### RFQ (quote request) files
+
+| Environment | Driver | Storage |
+|-------------|--------|---------|
+| Local dev | `RFQ_STORAGE_DRIVER=local` (default) | `server/uploads/rfq/` |
+| AWS API (staging/production) | `RFQ_STORAGE_DRIVER=s3` | Private S3 bucket |
+
+**API contract (unchanged):** uploads via `POST /api/quote-requests/attachments`; downloads via authenticated `GET /api/quote-requests/attachments/file/:filename`. The API streams from disk or S3 — **no public object URLs** in JSON metadata.
+
+**Required when `RFQ_STORAGE_DRIVER=s3`:**
+
+- `RFQ_S3_BUCKET` — private bucket (Block Public Access enabled)
+- `AWS_REGION` — e.g. `ap-south-1`
+- `RFQ_S3_PREFIX` — optional, default `rfq/`
+
+**Credentials:** use the EC2 instance IAM role (AWS SDK default credential chain). Do **not** set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` on the API host.
+
+**Least-privilege IAM policy (attach to EC2 role):**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/rfq/*"
+    }
+  ]
+}
+```
+
+Adjust `Resource` if you use a non-default `RFQ_S3_PREFIX`. Legacy files that exist only on disk are still served when S3 returns `NoSuchKey` (read-only fallback).
 
 Optional virus scanning: set `RFQ_VIRUS_SCAN_URL` when integrating external AV.
