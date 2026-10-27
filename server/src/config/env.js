@@ -46,6 +46,23 @@ const nodeEnv = optional('NODE_ENV', 'development')
 const isProd  = nodeEnv === 'production'
 const isDev   = !isProd
 
+/**
+ * Deployment tier when NODE_ENV=production: "production" (live) or "staging".
+ * Staging keeps production cookie/CORS behavior but may omit Razorpay until configured.
+ */
+const appEnv = (() => {
+  const fallback = isProd ? 'production' : 'development'
+  const value = optional('APP_ENV', fallback)
+  if (isProd && value !== 'staging' && value !== 'production') {
+    throw new Error(
+      '[config] APP_ENV must be "staging" or "production" when NODE_ENV=production.',
+    )
+  }
+  return value
+})()
+
+const isStaging = isProd && appEnv === 'staging'
+
 const jwtExpiresIn = optional('JWT_EXPIRES_IN', '7d')
 const jwtSecret = required('JWT_SECRET')
 
@@ -220,7 +237,14 @@ function assertProductionRazorpayKeys() {
 
 if (isProd) {
   assertProductionJwtSecret(jwtSecret)
-  assertProductionRazorpayKeys()
+  if (!isStaging) {
+    assertProductionRazorpayKeys()
+  } else if (!razorpayKeyId || !razorpayKeySecret) {
+    console.warn(
+      '[config] APP_ENV=staging — Razorpay keys not configured. '
+      + 'Subscription checkout and webhooks remain unavailable until keys are set.',
+    )
+  }
 }
 
 // ─── Exported config (frozen — callers must not mutate) ─────────────────────
@@ -230,7 +254,9 @@ const allowDummyDealPayments = !isProd && optional('ALLOW_DUMMY_DEAL_PAYMENTS', 
 
 module.exports = Object.freeze({
   nodeEnv,
+  appEnv,
   isProd,
+  isStaging,
   isDev,
   port:          parseInt(optional('PORT', '3001'), 10),
   databaseUrl:   required('DATABASE_URL'),

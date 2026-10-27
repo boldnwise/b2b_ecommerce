@@ -26,6 +26,14 @@ describe('Production environment guards', () => {
     expect(() => loadEnv({ RAZORPAY_KEY_ID: 'rzp_test_abc123' })).toThrow(/live RAZORPAY_KEY_ID/)
   })
 
+  test('throws when production omits Razorpay key id and secret', () => {
+    expect(() => loadEnv({
+      RAZORPAY_KEY_ID: '',
+      RAZORPAY_KEY_SECRET: '',
+      RAZORPAY_WEBHOOK_SECRET: '',
+    })).toThrow(/live RAZORPAY_KEY_ID/)
+  })
+
   test('throws when production omits webhook secret', () => {
     expect(() => loadEnv({
       RAZORPAY_KEY_ID: 'rzp_live_abc123',
