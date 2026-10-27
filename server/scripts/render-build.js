@@ -5,11 +5,18 @@
  */
 
 const { execSync } = require('child_process')
+const { validateMigrationEnv } = require('./check-migration-env.js')
 
 if (!process.env.DIRECT_URL && process.env.DATABASE_URL) {
   // If DIRECT_URL is not explicitly set in environment, derive it from DATABASE_URL
   // Automatically strip '-pooler.' to use direct connection for migrations if using Neon pooler
   process.env.DIRECT_URL = process.env.DATABASE_URL.replace('-pooler.', '.')
+}
+
+const migrationEnv = validateMigrationEnv(process.env)
+if (!migrationEnv.ok) {
+  migrationEnv.errors.forEach((message) => console.error(`[render:build] ${message}`))
+  process.exit(1)
 }
 
 try {

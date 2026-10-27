@@ -67,7 +67,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: client
-        run: npx playwright install --with-deps chromium firefox webkit
+        run: npx playwright install --with-deps chromium
 
       - name: ESLint — backend
         working-directory: server

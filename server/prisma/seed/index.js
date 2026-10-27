@@ -24,7 +24,11 @@ const { runCleanup } = require('./cleanup.js')
 const { shouldResetDatabase } = require('./env.js')
 const { upsertUsers, upsertAddresses } = require('./users.js')
 const { seedMasterCatalog } = require('./catalog.js')
-const { seedPremiumSubscriptions, seedAutomationSellerProducts } = require('./premium.js')
+const {
+  seedPremiumSubscriptions,
+  seedAutomationSellerProducts,
+  AUTOMATION_E2E_PRODUCT_COUNT,
+} = require('./premium.js')
 
 const prisma = new PrismaClient()
 
@@ -152,9 +156,11 @@ async function verifyPremiumGroup(users, groupSpecs, checks, { expectProducts = 
     if (spec.role === 'SELLER' && freshReset) {
       const productCount = await prisma.product.count({ where: { sellerId: u?.id } })
       if (expectProducts && productCountRange) {
+        const { min, max } = productCountRange
+        const countLabel = min === max ? `${min}` : `${min}–${max}`
         checks.push({
-          name: `${spec.email} product count (${productCountRange.min}–${productCountRange.max})`,
-          ok: productCount >= productCountRange.min && productCount <= productCountRange.max,
+          name: `${spec.email} product count (${countLabel})`,
+          ok: productCount >= min && productCount <= max,
         })
       } else {
         checks.push({
@@ -181,7 +187,10 @@ async function verifyBootstrap(users, { freshReset = false } = {}) {
   if (seedQa) {
     await verifyPremiumGroup(users, PREMIUM_AUTOMATION_USERS, checks, {
       expectProducts: shouldSeedE2eProducts(),
-      productCountRange: { min: 8, max: 10 },
+      productCountRange: {
+        min: AUTOMATION_E2E_PRODUCT_COUNT,
+        max: AUTOMATION_E2E_PRODUCT_COUNT,
+      },
       freshReset,
     })
     await verifyPremiumGroup(users, PREMIUM_QA_USERS, checks, { freshReset })
@@ -200,9 +209,15 @@ async function verifyBootstrap(users, { freshReset = false } = {}) {
         ok: empty.subscriptions === 6 && empty.payments === 6,
       })
       if (shouldSeedE2eProducts()) {
+        const automationSeller = users[PREMIUM_AUTOMATION_SELLER.email]
+        const nonAutomationProducts = automationSeller?.id
+          ? await prisma.product.count({ where: { sellerId: { not: automationSeller.id } } })
+          : -1
         checks.push({
-          name: 'Automation seller products only (8–10 total)',
-          ok: empty.products >= 8 && empty.products <= 10,
+          name: `Automation seller products only (${AUTOMATION_E2E_PRODUCT_COUNT} total)`,
+          ok:
+            empty.products === AUTOMATION_E2E_PRODUCT_COUNT
+            && nonAutomationProducts === 0,
         })
       } else {
         checks.push({
@@ -251,7 +266,9 @@ function printReport(legacyRemoved, catalogStats, counts, verification) {
   console.log('  MANUAL_ONBOARDING:        buyer1–5@test.com, seller1@test.com, seller4–5@test.com (no subscription, no portal user ID)')
   if (seedQa) {
     console.log(`  PREMIUM_AUTOMATION buyer: ${PREMIUM_AUTOMATION_BUYER.email} (${PREMIUM_AUTOMATION_BUYER.memberId})`)
-    console.log(`  PREMIUM_AUTOMATION seller:${PREMIUM_AUTOMATION_SELLER.email} (${PREMIUM_AUTOMATION_SELLER.memberId}, 10 products)`)
+    console.log(
+      `  PREMIUM_AUTOMATION seller:${PREMIUM_AUTOMATION_SELLER.email} (${PREMIUM_AUTOMATION_SELLER.memberId}, ${AUTOMATION_E2E_PRODUCT_COUNT} products)`,
+    )
     console.log(`  PREMIUM_QA buyer:         ${PREMIUM_QA_BUYER.email} (${PREMIUM_QA_BUYER.memberId}, fresh account)`)
     console.log(`  PREMIUM_QA seller:        ${PREMIUM_QA_SELLER.email} (${PREMIUM_QA_SELLER.memberId}, fresh account)`)
     console.log(`  PREMIUM_QA seller 2:      ${PREMIUM_QA_SELLER_2.email} (${PREMIUM_QA_SELLER_2.memberId}, fresh account)`)

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { loginViaUi } from '../fixtures/auth.js'
+import { csrfHeadersForPage } from '../fixtures/csrf.js'
 import { PREMIUM_QA_USERS, TEST_USERS } from '../fixtures/test-users.js'
 
 const FLOW_SELLERS_BY_PORTAL_ID = {
@@ -54,6 +55,7 @@ test.describe('RFQ full flow', () => {
     const { product, seller, productTitle } = await findFlowProduct(page.request)
 
     const createRes = await page.request.post('/api/quote-requests', {
+      headers: await csrfHeadersForPage(page),
       data: {
         productTitle,
         productId: product.id,

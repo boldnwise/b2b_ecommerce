@@ -4,11 +4,15 @@
  * Usage:
  *   node src/db/migrate.js          -> runs migrations only
  *   node src/db/migrate.js --seed   -> runs migrations and then seeds sample data
+ *
+ * `--seed` runs seeds/*.sql, which TRUNCATE the catalog tables. It is
+ * development/CI only and is refused whenever NODE_ENV=production.
  */
 
 const fs = require('fs')
 const path = require('path')
 const { pool } = require('./pool.js')
+const { SEED_OPERATIONS, assertSeedAllowed } = require('../../prisma/seed/env.js')
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations')
 const SEEDS_DIR = path.join(__dirname, 'seeds')
@@ -44,8 +48,20 @@ async function runSeeds(client) {
   }
 }
 
-async function main() {
-  const shouldSeed = process.argv.includes('--seed')
+async function main(argv = process.argv) {
+  const shouldSeed = argv.includes('--seed')
+
+  if (shouldSeed) {
+    try {
+      assertSeedAllowed(SEED_OPERATIONS.DESTRUCTIVE, { context: 'catalog sample seed (TRUNCATE)' })
+    } catch (err) {
+      console.error(`[error] ${err.message}`)
+      process.exitCode = 1
+      await pool.end()
+      return
+    }
+  }
+
   const client = await pool.connect()
 
   try {
@@ -66,4 +82,8 @@ async function main() {
   }
 }
 
-main()
+module.exports = { main }
+
+if (require.main === module) {
+  main()
+}

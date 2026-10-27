@@ -216,10 +216,14 @@ async function seedAutomationSellerProducts(prisma, users) {
   return products
 }
 
+/** Derived from buildAutomationProductSpecs — keep verification in sync with seed SKUs */
+const AUTOMATION_E2E_PRODUCT_COUNT = buildAutomationProductSpecs('').length
+
 module.exports = {
   seedPremiumSubscriptions,
   seedAutomationSellerProducts,
   buildAutomationProductSpecs,
+  AUTOMATION_E2E_PRODUCT_COUNT,
   upsertPremiumSubscription,
   syncSubscriptionIdentity,
 }
