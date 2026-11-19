@@ -1,9 +1,14 @@
 'use strict'
 
+jest.mock('../config/database')
+
+const { prisma } = require('../config/database')
 const {
   buildSubscriptionCard,
+  fetchMarketplaceSubscriptions,
   formatPlanLabel,
 } = require('../services/profileSubscriptionService.js')
+const { buildMarketplaceCapabilities } = require('../services/marketplaceCapabilityService.js')
 
 describe('profileSubscriptionService', () => {
   describe('buildSubscriptionCard', () => {
@@ -51,6 +56,46 @@ describe('profileSubscriptionService', () => {
       )
       expect(card.status).toBeNull()
       jest.useRealTimers()
+    })
+  })
+
+  describe('fetchMarketplaceSubscriptions', () => {
+    beforeEach(() => {
+      jest.clearAllMocks()
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        buyerSubscriptionPlan: null,
+        buyerSubscriptionStatus: null,
+        sellerSubscriptionPlan: null,
+        sellerSubscriptionStatus: null,
+      })
+    })
+
+    test('a single BOTH row grants buyer and seller deal capabilities', async () => {
+      prisma.subscription.findMany.mockResolvedValue([
+        { plan: 'BOTH_LIFETIME', status: 'ACTIVE', startsAt: new Date('2026-01-01'), expiresAt: null },
+      ])
+
+      const subscriptions = await fetchMarketplaceSubscriptions('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+      const caps = buildMarketplaceCapabilities(subscriptions)
+
+      expect(subscriptions.buyer.status).toBe('ACTIVE')
+      expect(subscriptions.seller.status).toBe('ACTIVE')
+      expect(caps.canViewBuyerOrders).toBe(true)
+      expect(caps.canViewSellerOrders).toBe(true)
+    })
+
+    test('a buyer-only row does not grant seller capabilities', async () => {
+      prisma.subscription.findMany.mockResolvedValue([
+        { plan: 'BUYER_LIFETIME', status: 'ACTIVE', startsAt: new Date('2026-01-01'), expiresAt: null },
+      ])
+
+      const caps = buildMarketplaceCapabilities(
+        await fetchMarketplaceSubscriptions('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+      )
+
+      expect(caps.canViewBuyerOrders).toBe(true)
+      expect(caps.canViewSellerOrders).toBe(false)
     })
   })
 

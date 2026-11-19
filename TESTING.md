@@ -91,13 +91,70 @@ npm run test:e2e:ci
 npx playwright show-report
 ```
 
-### Seeded credentials (`server/prisma/seed.js`)
+### Test database
 
-| Role | Email | Password |
-|------|-------|----------|
-| Buyer | `buyer.subscribed@buyer.test` | `buyer123` |
-| Seller | `alpha@seller.test` | `seller123` |
-| Admin | `admin@b2b.local` | `admin123` |
+Playwright starts the API against `DATABASE_URL` (default `postgresql://test:test@127.0.0.1:5432/test_db`).
+The config refuses any database that is not on `localhost`/`127.0.0.1` or whose name does not
+contain `test`, and it never reads `server/.env`. The tests write to this database: they create
+SSO users, tickets, and RFQs.
+
+The seed scripts load `server/.env` for any variable that is not already set, so set
+`DATABASE_URL` and `DIRECT_URL` in the same shell first. `db:reset` deletes and re-seeds every row
+in that database.
+
+PowerShell:
+
+```powershell
+$env:NODE_ENV = 'test'
+$env:DATABASE_URL = 'postgresql://<user>:<password>@127.0.0.1:5432/test_db'
+$env:DIRECT_URL = $env:DATABASE_URL
+
+cd server
+npx prisma generate
+npx prisma migrate deploy
+npm run db:reset           # destructive
+npm run catalog:migrate
+npm run catalog:seed
+
+cd ../client
+npm run test:e2e:ci
+```
+
+bash: `export` the same three variables, then run the same commands. `npm run db:ci:setup` runs the five
+server steps in one go, as CI does.
+
+To keep an existing test database instead of resetting it, run the safe seed and then upsert the
+Playwright catalog listings (20 `E2E-*` products for `seller.premium1@test.com`, needed by the RFQ
+flow). Neither command deletes data, and both can be re-run:
+
+```powershell
+cd server
+npm run db:seed                # safe seed: users, addresses, subscriptions
+npm run db:seed:e2e-products   # E2E listings only; refuses non-local or non-"test" databases
+```
+
+### API server and test SSO secret
+
+Buyers and sellers sign in through a test SSO handoff. Playwright starts the API with
+`SSO_S2S_SECRET` (`client/tests/fixtures/sso.js`, override with `PLAYWRIGHT_SSO_S2S_SECRET`) and
+`SSO_HANDOFF_ALLOWED_ORIGINS` set to a stand-in Authify origin (`http://localhost:4599`, override with
+`PLAYWRIGHT_AUTHIFY_ORIGIN`).
+
+If something already listens on port 3001, the run fails instead of reusing it. To reuse a server
+you started yourself, start it with the two values above and set `PLAYWRIGHT_REUSE_API_SERVER=1`
+(or `PLAYWRIGHT_SKIP_WEBSERVER=1`). `tests/global-setup.js` then sends a signed probe and stops the
+run unless the API holds the test secret. The probe makes no database writes.
+
+### Seeded accounts (`server/prisma/seed/constants.js`)
+
+| Account | Sign-in | Subscription |
+|---------|---------|--------------|
+| `buyer.premium1@test.com` | Test SSO, Authify ID `900000000001` | Buyer lifetime |
+| `seller.premium1@test.com` | Test SSO, Authify ID `900000000002` | Seller lifetime |
+| `both.premium1@test.com` | Test SSO, Authify ID `900000000007` | Both lifetime |
+| `admin@b2b.local` | Password at `/admin/login` | — |
+
+Buyer and seller password login is refused (`SSO_REQUIRED`).
 
 ---
 

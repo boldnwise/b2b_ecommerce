@@ -8,7 +8,13 @@ const JWT_ISSUER = 'b2b-ecommerce-api'
 const JWT_ALGORITHMS = ['HS256']
 
 /**
- * @param {{ sub: string, email: string, role: string }} payload
+ * How the session was established. Buyer and seller sessions are accepted only
+ * when they came from Authify SSO; admins sign in with a password.
+ */
+const AUTH_METHODS = Object.freeze({ SSO: 'sso', PASSWORD: 'password' })
+
+/**
+ * @param {{ sub: string, email: string, role: string, authMethod: string }} payload
  */
 function signToken(payload) {
   return jwt.sign(payload, env.jwtSecret, {
@@ -25,4 +31,4 @@ function verifyToken(token) {
   })
 }
 
-module.exports = { signToken, verifyToken, JWT_ISSUER, JWT_ALGORITHMS }
+module.exports = { signToken, verifyToken, JWT_ISSUER, JWT_ALGORITHMS, AUTH_METHODS }

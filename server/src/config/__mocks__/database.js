@@ -50,6 +50,17 @@ const mockPrisma = {
     findMany: jest.fn(),
     count:    jest.fn(),
   },
+  ssoTicket: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  ssoNonce: {
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   subscription: {
     findFirst:  jest.fn(),
     findUnique: jest.fn(),

@@ -202,7 +202,7 @@ export function UserPortalLayout() {
 
   function onLogout() {
     logout()
-    navigate('/login', { replace: true })
+    navigate('/session-required', { replace: true })
   }
 
   function closeSidebar() {

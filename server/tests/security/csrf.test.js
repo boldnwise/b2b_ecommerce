@@ -50,4 +50,26 @@ describe('CSRF protection', () => {
     expect(res.status).toBe(200)
     expect(res.body.success).toBe(true)
   })
+
+  test('403 when CSRF header does not match the cookie', async () => {
+    const res = await agent
+      .post('/api/subscriptions/create-order')
+      .set('Cookie', `auth_token=${buyerToken}; csrf_token=${process.env.TEST_CSRF_TOKEN}`)
+      .set('X-CSRF-Token', 'different-csrf-token')
+      .send({ plan: 'BUYER_ANNUAL' })
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('CSRF_VALIDATION_FAILED')
+  })
+
+  test('GET does not require a CSRF header', async () => {
+    const res = await agent
+      .get('/api/auth/me')
+      .set('Cookie', `auth_token=${buyerToken}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.error?.code).not.toBe('CSRF_VALIDATION_FAILED')
+    const csrfCookie = (res.headers['set-cookie'] ?? []).find((cookie) => cookie.startsWith('csrf_token='))
+    expect(res.headers['x-csrf-token']).toBe(csrfCookie.split(';')[0].slice('csrf_token='.length))
+  })
 })

@@ -26,18 +26,6 @@ export const login = createAsyncThunk(
   },
 )
 
-export const register = createAsyncThunk(
-  'auth/register',
-  async (payload, { rejectWithValue }) => {
-    try {
-      const { user } = await authApi.registerRequest(payload)
-      return user
-    } catch (e) {
-      return rejectWithValue(e.message || 'Registration failed')
-    }
-  },
-)
-
 /**
  * Ask the server to clear the auth cookie then wipe local Redux state.
  * The cookie clear is best-effort — Redux state is always cleared regardless.
@@ -111,22 +99,6 @@ const authSlice = createSlice({
       .addCase(login.rejected, (state, action) => {
         state.status = 'failed'
         state.error = action.payload || 'Login failed'
-      })
-
-      // ── register ──────────────────────────────────────────────────────
-      .addCase(register.pending, (state) => {
-        state.status = 'loading'
-        state.error = null
-      })
-      .addCase(register.fulfilled, (state, action) => {
-        state.status = 'succeeded'
-        state.user = action.payload
-        state.initialized = true
-        state.error = null
-      })
-      .addCase(register.rejected, (state, action) => {
-        state.status = 'failed'
-        state.error = action.payload || 'Registration failed'
       })
 
       // ── logoutUser ────────────────────────────────────────────────────

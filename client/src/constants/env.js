@@ -72,6 +72,34 @@ export const isMisconfiguredProductionApi =
     /VITE_API_/i.test(apiBaseUrl) ||
     (!apiBaseUrl.startsWith('http') && apiBaseUrl !== '/api'))
 
+/**
+ * Authify Main Portal frontend origin (VITE_AUTHIFY_FRONTEND_URL).
+ * Returns '' when unset or not a safe absolute URL, so callers can hide the link.
+ * Plain http is accepted only for localhost.
+ */
+export function normalizeAuthifyFrontendUrl(raw) {
+  const value = String(raw ?? '').trim()
+  if (!value) return ''
+
+  let parsed
+  try {
+    parsed = new URL(value)
+  } catch {
+    return ''
+  }
+
+  const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
+  if (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && isLocalHost)) {
+    return parsed.origin
+  }
+  return ''
+}
+
+/** Authify page that lists the user's apps; B2B is opened from there through SSO. */
+export function authifyMyAppsUrl(frontendUrl) {
+  return frontendUrl ? `${frontendUrl}/my-apps` : ''
+}
+
 const parsedTimeout = Number(import.meta.env.VITE_API_TIMEOUT)
 const apiTimeout = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 30_000
 
@@ -81,6 +109,7 @@ export const env = Object.freeze({
   appName: import.meta.env.VITE_APP_NAME || 'B2B Marketplace',
   /** Razorpay public key_id — fallback when API omits keyId; must match server RAZORPAY_KEY_ID */
   razorpayKeyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+  authifyFrontendUrl: normalizeAuthifyFrontendUrl(import.meta.env.VITE_AUTHIFY_FRONTEND_URL),
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
 })

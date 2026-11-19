@@ -5,7 +5,7 @@ const { AppError } = require('../utils/AppError.js')
 const { hasActiveSubscription } = require('../middleware/requireSubscription.js')
 const { createOrderFromQuote } = require('../services/quoteOrderService.js')
 const { createDealFromAcceptedQuote } = require('../services/dealCreationService.js')
-const { createQuoteRequests } = require('../services/rfqCreateService.js')
+const { createQuoteRequests, assertEligibleSellers } = require('../services/rfqCreateService.js')
 const {
   assertTransition,
   isRevisionTransition,
@@ -109,13 +109,7 @@ async function resolveSellerIds(body, product) {
 }
 
 async function assertSellersExist(sellerIds) {
-  const sellers = await prisma.user.findMany({
-    where: { id: { in: sellerIds }, role: 'SELLER' },
-    select: { id: true },
-  })
-  if (sellers.length !== sellerIds.length) {
-    throw new AppError('One or more sellerIds are invalid', 400, 'VALIDATION_ERROR')
-  }
+  await assertEligibleSellers(sellerIds)
 }
 
 const PRE_DEAL_PRIVACY = { dealAccepted: false, dealChargesPaid: false }
@@ -507,6 +501,15 @@ const getById = asyncHandler(async (req, res) => {
   })
 })
 
+/**
+ * Seller actions are authorized by workspace, subscription, and ownership.
+ * A BOTH account keeps role BUYER on the JWT, so the lifecycle actor is the
+ * seller workspace rather than that stored role. ADMIN stays ADMIN.
+ */
+function sellerWorkspaceActor(user) {
+  return user.role === 'ADMIN' ? 'ADMIN' : 'SELLER'
+}
+
 const respond = asyncHandler(async (req, res) => {
   if (req.user.role !== 'ADMIN' && !(await hasActiveSubscription(req.user.id, 'SELLER'))) {
     throw new AppError(
@@ -518,7 +521,7 @@ const respond = asyncHandler(async (req, res) => {
 
   const existing = await assertSellerCanAccess(req.params.id, req.user)
   const nextStatus = 'RESPONDED'
-  assertTransition(existing.status, nextStatus, req.user.role)
+  assertTransition(existing.status, nextStatus, sellerWorkspaceActor(req.user))
 
   let validUntil = req.body.quoteValidUntil ? new Date(req.body.quoteValidUntil) : defaultQuoteValidUntil()
   if (req.body.quoteValidUntil && Number.isNaN(validUntil.getTime())) {
@@ -593,7 +596,7 @@ const sellerReject = asyncHandler(async (req, res) => {
   }
 
   const existing = await assertSellerCanAccess(req.params.id, req.user)
-  assertTransition(existing.status, 'DECLINED', req.user.role)
+  assertTransition(existing.status, 'DECLINED', sellerWorkspaceActor(req.user))
 
   const updated = await prisma.$transaction(async (tx) => {
     const row = await tx.quoteRequest.update({

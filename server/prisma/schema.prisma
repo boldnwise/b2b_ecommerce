@@ -24,6 +24,8 @@ model User {
   sellerSubscriptionActivatedAt DateTime?              @map("seller_subscription_activated_at")
   /// Public identity from Main Portal (e.g. USR-000245). Single ID for buyer + seller workspaces.
   portalUserId                  String?                @unique @map("portal_user_id") @db.VarChar(32)
+  /// Authify internal numeric users.id, stored as a canonical decimal string. Not a public display id.
+  authifyUserId                 String?                @unique @map("authify_user_id") @db.VarChar(32)
   /// Soft-deactivation — blocked from login until reactivated by admin.
   isActive                      Boolean                @default(true) @map("is_active")
   deactivatedAt                 DateTime?              @map("deactivated_at")
@@ -46,6 +48,7 @@ model User {
   sellerQuoteRequests           QuoteRequest[]         @relation("SellerQuoteRequests")
   rfqGroups                     RfqGroup[]
   rfqNotifications              RfqNotificationEvent[]
+  ssoTickets                    SsoTicket[]
   subscriptions                 Subscription[]
 
   @@index([isActive])
@@ -69,6 +72,33 @@ model Subscription {
   @@index([userId])
   @@index([status])
   @@map("subscriptions")
+}
+
+/// One-time SSO ticket. Only the SHA-256 hex of the raw ticket is stored.
+model SsoTicket {
+  id         String    @id @default(uuid())
+  ticketHash String    @unique @map("ticket_hash") @db.VarChar(64)
+  userId     String    @map("user_id")
+  audience   String    @db.VarChar(32)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sso_tickets")
+}
+
+/// Accepted SSO request nonce. Unique so concurrent replays cannot both succeed.
+model SsoNonce {
+  id        String   @id @default(uuid())
+  nonce     String   @unique @db.VarChar(128)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("sso_nonces")
 }
 
 /// Database-driven master configuration for subscription plans (V2 & future tiers).

@@ -40,6 +40,7 @@ function csrfCookieOptions() {
     httpOnly: false,
     secure: crossSite || env.nodeEnv === 'production',
     sameSite: crossSite ? 'none' : 'lax',
+    maxAge: env.cookieMaxAge,
     path: '/',
     ...(crossSite ? { partitioned: true } : {}),
   }

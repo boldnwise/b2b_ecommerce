@@ -11,16 +11,21 @@ test.describe('Homepage', () => {
 })
 
 test.describe('Login redirect', () => {
-  test('protected buyer dashboard redirects to login', async ({ page }) => {
+  test('protected buyer dashboard explains how to open B2B from Authify', async ({ page }) => {
     await page.goto('/buyer/dashboard')
-    await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+    await expect(page).toHaveURL(/\/session-required/)
+    await expect(page.getByRole('heading', { name: /open b2b from authify/i })).toBeVisible()
   })
 
-  test('guest can open login page', async ({ page }) => {
+  test('guest login and register routes explain how to open B2B from Authify', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByPlaceholder('you@company.com')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
+    await expect(page).toHaveURL(/\/session-required/)
+    await expect(page.getByRole('heading', { name: /open b2b from authify/i })).toBeVisible()
+    await expect(page.getByPlaceholder('you@company.com')).toHaveCount(0)
+
+    await page.goto('/register')
+    await expect(page).toHaveURL(/\/session-required/)
+    await expect(page.getByRole('heading', { name: /open b2b from authify/i })).toBeVisible()
   })
 
   test('authenticated buyer reaches dashboard', async ({ page }) => {

@@ -4,6 +4,7 @@ const { Prisma } = require('@prisma/client')
 const crypto = require('crypto')
 const { prisma } = require('../config/database.js')
 const { AppError } = require('../utils/AppError.js')
+const { hasActiveSubscription } = require('../middleware/requireSubscription.js')
 const { allocateRfqNumber } = require('./rfqNumberService.js')
 const { emitRfqNotification, RFQ_EVENT_TYPES } = require('./rfqNotificationService.js')
 
@@ -27,7 +28,41 @@ function cleanText(value, maxLength) {
   return text ? text.slice(0, maxLength) : null
 }
 
-async function resolveCreateTargets(body) {
+/**
+ * A quotation target must be an active account that can act as a seller.
+ * Role SELLER qualifies on its own. A BUYER qualifies only with an active
+ * seller subscription, the same plans used by seller workspace access.
+ * Every other role, including ADMIN, is never a quotation target.
+ */
+async function isEligibleSeller(user) {
+  if (!user || user.isActive === false) return false
+  if (user.role === 'SELLER') return true
+  if (user.role !== 'BUYER') return false
+  return hasActiveSubscription(user.id, 'SELLER')
+}
+
+/** A BOTH account must not send an RFQ to its own seller workspace. */
+function assertNotSelfTargeted(buyerId, sellerIds) {
+  if (buyerId && sellerIds.includes(buyerId)) {
+    throw new AppError('You cannot send an RFQ to your own seller account', 400, 'VALIDATION_ERROR')
+  }
+}
+
+async function assertEligibleSellers(sellerIds) {
+  const users = await prisma.user.findMany({
+    where: { id: { in: sellerIds } },
+    select: { id: true, role: true, isActive: true },
+  })
+  const byId = new Map(users.map((user) => [user.id, user]))
+
+  for (const sellerId of sellerIds) {
+    if (!(await isEligibleSeller(byId.get(sellerId)))) {
+      throw new AppError('One or more sellerIds are invalid', 400, 'VALIDATION_ERROR')
+    }
+  }
+}
+
+async function resolveCreateTargets(body, { buyerId } = {}) {
   if (Array.isArray(body.productEntries) && body.productEntries.length) {
     const productIds = body.productEntries.map((entry) => entry.productId)
     const products = await prisma.product.findMany({
@@ -37,11 +72,17 @@ async function resolveCreateTargets(body) {
     if (products.length !== productIds.length) {
       throw new AppError('One or more product listings are invalid or inactive', 400, 'VALIDATION_ERROR')
     }
-    const sellerIds = products.map((p) => p.sellerId)
+    const sellerIds = products.map((product) => product.sellerId)
+    assertNotSelfTargeted(buyerId, sellerIds)
+    await assertEligibleSellers([...new Set(sellerIds)])
     if (new Set(sellerIds).size !== sellerIds.length) {
       throw new AppError('Duplicate seller in productEntries is not allowed', 400, 'VALIDATION_ERROR')
     }
-    return products.map((p) => ({ productId: p.id, sellerId: p.sellerId, moq: p.moq }))
+    return products.map((product) => ({
+      productId: product.id,
+      sellerId: product.sellerId,
+      moq: product.moq,
+    }))
   }
 
   let product = null
@@ -68,13 +109,8 @@ async function resolveCreateTargets(body) {
     throw new AppError('At least one seller or product listing is required', 400, 'VALIDATION_ERROR')
   }
 
-  const sellers = await prisma.user.findMany({
-    where: { id: { in: sellerIds }, role: 'SELLER' },
-    select: { id: true },
-  })
-  if (sellers.length !== sellerIds.length) {
-    throw new AppError('One or more sellerIds are invalid', 400, 'VALIDATION_ERROR')
-  }
+  assertNotSelfTargeted(buyerId, sellerIds)
+  await assertEligibleSellers(sellerIds)
 
   return sellerIds.map((sellerId) => ({
     productId: product?.id ?? null,
@@ -99,7 +135,7 @@ async function createQuoteRequests({
   quantity,
   productTitle,
 }) {
-  const targets = await resolveCreateTargets(body)
+  const targets = await resolveCreateTargets(body, { buyerId })
   assertQuantityMeetsMoq(quantity, targets)
 
   const rfqGroupId = crypto.randomUUID()
@@ -172,5 +208,6 @@ async function createQuoteRequests({
 module.exports = {
   createQuoteRequests,
   resolveCreateTargets,
+  assertEligibleSellers,
   assertQuantityMeetsMoq,
 }

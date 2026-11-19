@@ -2,6 +2,11 @@
 
 const BUYER_PLANS = new Set(['BUYER_MONTHLY', 'BUYER_ANNUAL', 'BUYER_LIFETIME', 'BUYER_STANDARD'])
 const SELLER_PLANS = new Set(['SELLER_MONTHLY', 'SELLER_ANNUAL', 'SELLER_LIFETIME', 'SELLER_MONTH'])
+const BUNDLE_PLANS = ['BOTH_MONTHLY', 'BOTH_ANNUAL', 'BOTH_LIFETIME']
+
+/** Plans that grant each workspace. A single BOTH_* row grants both, matching requireSubscription. */
+const BUYER_ENTITLEMENT_PLANS = new Set([...BUYER_PLANS, ...BUNDLE_PLANS])
+const SELLER_ENTITLEMENT_PLANS = new Set([...SELLER_PLANS, ...BUNDLE_PLANS])
 
 function workspaceForPlan(plan) {
   if (BUYER_PLANS.has(plan)) return 'BUYER'
@@ -100,4 +105,6 @@ module.exports = {
   hasEverActivatedSellerSub,
   BUYER_PLANS,
   SELLER_PLANS,
+  BUYER_ENTITLEMENT_PLANS,
+  SELLER_ENTITLEMENT_PLANS,
 }

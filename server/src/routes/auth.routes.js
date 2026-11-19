@@ -1,27 +1,16 @@
 const { Router } = require('express')
-const rateLimit = require('express-rate-limit')
 const authController = require('../controllers/authController.js')
 const { authenticate } = require('../middleware/authenticate.js')
+const { createAuthLimiter } = require('../middleware/authRateLimiter.js')
 const { validate } = require('../middleware/validate.js')
-const { registerBody, loginBody } = require('../validators/auth.validator.js')
-const { requirePublicRegistration } = require('../middleware/requirePublicRegistration.js')
+const { loginBody } = require('../validators/auth.validator.js')
 
 const router = Router()
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-  standardHeaders: true,
-  legacyHeaders: false,
-})
+const authLimiter = createAuthLimiter()
 
-router.post(
-  '/register',
-  authLimiter,
-  requirePublicRegistration,
-  validate(registerBody),
-  authController.register,
-)
+router.post('/register', authLimiter, authController.register)
+/** Admin-only password sign-in. Buyers and sellers get 403 SSO_REQUIRED. */
 router.post('/login', authLimiter, validate(loginBody), authController.login)
 router.get('/me', authenticate, authController.me)
 

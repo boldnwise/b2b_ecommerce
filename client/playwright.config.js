@@ -1,30 +1,40 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import { defineConfig, devices } from '@playwright/test'
+import { TEST_AUTHIFY_ORIGIN, TEST_SSO_S2S_SECRET } from './tests/fixtures/sso.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const LOCAL_DB_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
-/** Use CI Postgres when set; otherwise fall back to server/.env for local E2E runs. */
-function resolveDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL
+/**
+ * The E2E API writes to this database (SSO users, tickets, RFQs). It must be a local
+ * database whose name contains "test". server/.env is deliberately not read.
+ */
+function assertLocalTestDatabase(name, value) {
+  let url
   try {
-    const envPath = path.resolve(__dirname, '../server/.env')
-    const content = fs.readFileSync(envPath, 'utf8')
-    const match = content.match(/^DATABASE_URL=(.+)$/m)
-    if (match) return match[1].replace(/^["']|["']$/g, '').trim()
+    url = new URL(value)
   } catch {
-    /* local server/.env optional */
+    throw new Error(`[playwright] ${name} is not a valid PostgreSQL URL.`)
   }
-  return 'postgresql://test:test@127.0.0.1:5432/test_db'
+  const database = url.pathname.replace(/^\//, '')
+  if (!LOCAL_DB_HOSTS.has(url.hostname) || !/test/i.test(database)) {
+    throw new Error(
+      `[playwright] Refusing ${name} (host "${url.hostname}", database "${database}"). `
+        + 'E2E tests only run against a local database whose name contains "test".',
+    )
+  }
+  return value
 }
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173'
 const apiURL = process.env.PLAYWRIGHT_API_URL || 'http://127.0.0.1:3001'
-const databaseUrl = resolveDatabaseUrl()
+const databaseUrl = assertLocalTestDatabase(
+  'DATABASE_URL',
+  process.env.DATABASE_URL || 'postgresql://test:test@127.0.0.1:5432/test_db',
+)
+const directUrl = assertLocalTestDatabase('DIRECT_URL', process.env.DIRECT_URL || databaseUrl)
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './tests/global-setup.js',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -83,16 +93,21 @@ export default defineConfig({
           command: 'npm run start:ci',
           cwd: '../server',
           url: `${apiURL}/api/health`,
-          reuseExistingServer: !process.env.CI,
+          // A server already on the API port fails the run unless explicitly opted in;
+          // tests/global-setup.js then still checks it holds the test SSO secret.
+          reuseExistingServer: process.env.PLAYWRIGHT_REUSE_API_SERVER === '1',
           timeout: 120_000,
           env: {
             NODE_ENV: 'test',
             PORT: '3001',
             DATABASE_URL: databaseUrl,
+            DIRECT_URL: directUrl,
             JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-at-least-32-characters-long!',
             CLIENT_URL: 'http://127.0.0.1:5173',
             RAZORPAY_KEY_ID: 'rzp_test_TESTID',
             RAZORPAY_KEY_SECRET: 'test_secret_TESTKEY',
+            SSO_S2S_SECRET: TEST_SSO_S2S_SECRET,
+            SSO_HANDOFF_ALLOWED_ORIGINS: TEST_AUTHIFY_ORIGIN,
           },
         },
         {
@@ -102,6 +117,8 @@ export default defineConfig({
           timeout: 120_000,
           env: {
             VITE_BACKEND_URL: apiURL,
+            // Same host as the SSO handoff so the session cookie is sent with API calls.
+            VITE_API_BASE_URL: `${apiURL}/api`,
           },
         },
       ],

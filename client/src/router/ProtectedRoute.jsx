@@ -148,7 +148,7 @@ export function ProtectedRoute({
     setIntendedRoute(intended)
     return (
       <Navigate
-        to={redirectTo || '/login'}
+        to={redirectTo || '/session-required'}
         state={{ from: { pathname: intended } }}
         replace
       />

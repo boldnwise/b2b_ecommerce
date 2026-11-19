@@ -7,7 +7,7 @@
 
 const { prisma } = require('../config/database.js')
 const { USER_SELECT } = require('../utils/serializeUser.js')
-const { BUYER_PLANS, SELLER_PLANS } = require('./subscriptionSyncService.js')
+const { BUYER_ENTITLEMENT_PLANS, SELLER_ENTITLEMENT_PLANS } = require('./subscriptionSyncService.js')
 
 function formatPlanLabel(plan) {
   if (!plan) return null
@@ -80,8 +80,8 @@ async function fetchMarketplaceSubscriptions(userId) {
   if (!user) return { buyer: null, seller: null }
 
   const subscriptions = await fetchUserSubscriptions(userId)
-  const buyerSub = pickLatestSubscription(subscriptions, BUYER_PLANS)
-  const sellerSub = pickLatestSubscription(subscriptions, SELLER_PLANS)
+  const buyerSub = pickLatestSubscription(subscriptions, BUYER_ENTITLEMENT_PLANS)
+  const sellerSub = pickLatestSubscription(subscriptions, SELLER_ENTITLEMENT_PLANS)
 
   return {
     buyer: buildSubscriptionCard(

@@ -44,7 +44,6 @@ jest.mock('../../src/config/env.js', () => ({
   integrationNegotiationVerifyUrl: '',
   integrationS2sSharedSecret: '',
   csrfProtectionEnabled: true,
-  enablePublicRegistration: false,
   sentryDsn: '',
   mainPortalProfileEnabled: false,
   allowDummyDealPayments: false,
@@ -108,6 +107,7 @@ describe('Production CORS headers', () => {
     expect(res.status).toBe(200)
     expect(res.headers['access-control-allow-origin']).toBe(ORIGIN)
     expect(res.headers['access-control-allow-credentials']).toBe('true')
+    expect(String(res.headers['access-control-expose-headers']).toLowerCase()).toContain('x-csrf-token')
   })
 
   test('404 responses include ACAO for allowed origin', async () => {

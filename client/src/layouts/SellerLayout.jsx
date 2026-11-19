@@ -100,7 +100,7 @@ export function SellerLayout() {
 
   function onLogout() {
     logout()
-    navigate('/login', { replace: true })
+    navigate('/session-required', { replace: true })
   }
 
   return (

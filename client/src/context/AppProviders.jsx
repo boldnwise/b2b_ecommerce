@@ -1,6 +1,6 @@
 import { Provider, useDispatch } from 'react-redux'
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
 import { store } from '../store/index.js'
@@ -9,23 +9,32 @@ import { logout } from '../store/slices/authSlice.js'
 
 /**
  * Registers the global 401 handler once. When the server rejects a request
- * with 401 (outside of login/register), this:
- *   1. Clears Redux auth state immediately (synchronous logout)
- *   2. Shows an expiry toast
- *   3. Redirects to /login so the user can re-authenticate
+ * with 401 (outside of login, register, logout, and /auth/me), this:
+ *   1. Clears Redux auth state immediately
+ *   2. Tells the user the session ended
+ *   3. Sends marketplace pages to /session-required and admin pages to /admin/login
  *
- * Navigation is done here rather than inside the Axios interceptor because
- * `useNavigate` must be called inside the Router tree.
+ * The cookie and JWT checks stay in place. Navigation stays here because
+ * `useNavigate` must run inside the Router tree.
  */
 function ApiAuthBridge() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const location = useLocation()
+  const pathRef = useRef(location.pathname)
+  pathRef.current = location.pathname
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
       dispatch(logout())
-      toast.error('Session expired — please sign in again.')
-      navigate('/login', { replace: true })
+      const onAdmin = pathRef.current.startsWith('/admin')
+      if (onAdmin) {
+        toast.error('Session expired — please sign in again.')
+        navigate('/admin/login', { replace: true })
+        return
+      }
+      toast.error('Your B2B session ended. Open B2B again from the Authify Main Portal.')
+      navigate('/session-required', { replace: true })
     })
     return () => setUnauthorizedHandler(() => {})
   }, [dispatch, navigate])

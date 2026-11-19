@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, Outlet, useParams } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute.jsx'
 import { PageLoader } from '../components/ui/PageLoader.jsx'
 import { ErrorBoundary } from '../components/common/ErrorBoundary.jsx'
+import { SessionRequiredPage } from '../pages/common/SessionRequiredPage.jsx'
 
 const SubscriptionPage = lazy(() =>
   import('../pages/seller/SubscriptionPage.jsx').then((m) => ({ default: m.SubscriptionPage })),
@@ -42,13 +43,6 @@ const ShippingPolicyPage = lazy(() =>
 const CancellationRefundsPage = lazy(() =>
   import('../pages/marketing/LegalPages.jsx').then((m) => ({ default: m.CancellationRefundsPage })),
 )
-const LoginPage = lazy(() =>
-  import('../pages/auth/LoginPage.jsx').then((m) => ({ default: m.LoginPage })),
-)
-const RegisterPage = lazy(() =>
-  import('../pages/auth/RegisterPage.jsx').then((m) => ({ default: m.RegisterPage })),
-)
-
 const UserPortalLayout = lazy(() =>
   import('../layouts/UserPortalLayout.jsx').then((m) => ({ default: m.UserPortalLayout })),
 )
@@ -206,6 +200,7 @@ export function AppRoutes() {
           <Route path="seller" element={<BuyerBothSellerPricing />} />
         </Route>
         <Route path="/pricing" element={<PricingPlansPage />} />
+        <Route path="/session-required" element={<SessionRequiredPage />} />
         <Route path="/products/:productId" element={<ProductDetailPage />} />
         <Route path="/products" element={<MarketingProductsPage />} />
         <Route
@@ -223,22 +218,8 @@ export function AppRoutes() {
         <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
         <Route path="/cancellation-refunds" element={<CancellationRefundsPage />} />
 
-        <Route
-          path="/login"
-          element={
-            <ProtectedRoute guestOnly>
-              <LoginPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <ProtectedRoute guestOnly>
-              <RegisterPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/login" element={<Navigate to="/session-required" replace />} />
+        <Route path="/register" element={<Navigate to="/session-required" replace />} />
         <Route
           path="/admin/login"
           element={
@@ -317,7 +298,7 @@ export function AppRoutes() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute roles={['ADMIN']}>
+            <ProtectedRoute roles={['ADMIN']} redirectTo="/admin/login">
               <AdminLayout />
             </ProtectedRoute>
           }

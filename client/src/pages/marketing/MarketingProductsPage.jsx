@@ -246,7 +246,7 @@ export function MarketingProductsPage() {
     (product) => {
       if (!isAuthenticated) {
         toast('Sign in as a buyer to use the wishlist.', { icon: 'ℹ️' })
-        navigate('/login')
+        navigate('/session-required')
         return
       }
       if (!buyerWorkspace) {
@@ -268,7 +268,7 @@ export function MarketingProductsPage() {
     (product) => {
       if (!isAuthenticated) {
         toast('Sign in to request a quotation.', { icon: 'ℹ️' })
-        navigate('/login')
+        navigate('/session-required')
         return
       }
       if (!buyerWorkspace) {
@@ -304,7 +304,7 @@ export function MarketingProductsPage() {
 
   function openQuotationHub() {
     if (!isAuthenticated) {
-      navigate('/login')
+      navigate('/session-required')
       return
     }
     if (!buyerWorkspace) {
@@ -400,7 +400,7 @@ export function MarketingProductsPage() {
     if (!selectedRfqProducts.length) return
     if (!isAuthenticated) {
       toast('Sign in to request a quotation.', { icon: 'ℹ️' })
-      navigate('/login')
+      navigate('/session-required')
       return
     }
     if (!buyerWorkspace) {
@@ -512,7 +512,7 @@ export function MarketingProductsPage() {
                   onClick={() => {
                     if (!isAuthenticated) {
                       toast('Sign in as a buyer to use the wishlist.', { icon: 'ℹ️' })
-                      navigate('/login')
+                      navigate('/session-required')
                       return
                     }
                     if (!buyerWorkspace) {
@@ -531,11 +531,6 @@ export function MarketingProductsPage() {
                 linkClassName="mpNav__link mpNav__link--dashboard"
                 menuClassName="dashboardMenu dashboardMenu--mpNav"
               />
-            ) : null}
-            {authInitialized && !isAuthenticated ? (
-              <Link to="/login" className="mpNav__link mpNav__link--signin">
-                Sign in
-              </Link>
             ) : null}
           </nav>
         </div>

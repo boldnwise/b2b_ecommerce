@@ -10,10 +10,12 @@ test.describe('Primary navigation', () => {
     await expect(page).toHaveURL(/\/pricing/)
   })
 
-  test('sign in link routes to login', async ({ page }) => {
+  test('catalog header has no password sign-in link', async ({ page }) => {
     await page.goto('/products')
-    await page.getByRole('link', { name: /sign in/i }).click()
-    await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByRole('link', { name: /^sign in$/i })).toHaveCount(0)
+    await expect(page).toHaveURL(/\/products/)
+    await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Pricing' }).click()
+    await expect(page).toHaveURL(/\/pricing/)
   })
 })
 

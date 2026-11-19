@@ -17,9 +17,10 @@ if (isMisconfiguredProductionApi) {
  * Central Axios instance. ALL HTTP traffic in the app MUST go through this
  * module so auth, error handling and base-URL concerns stay in one place.
  *
- * Authentication is now cookie-based (httpOnly). The browser automatically
- * attaches the `auth_token` cookie on every request as long as
- * `withCredentials: true` is set. No manual header attachment needed.
+ * Authentication is cookie-based (httpOnly). The browser attaches `auth_token`
+ * when `withCredentials: true`. The CSRF token is kept in memory from the
+ * `X-CSRF-Token` response header, because the API host cookie is not readable
+ * from the frontend origin.
  */
 export const api = axios.create({
   baseURL: env.apiBaseUrl,
@@ -39,28 +40,160 @@ export function setUnauthorizedHandler(fn) {
   onUnauthorized = typeof fn === 'function' ? fn : () => {}
 }
 
-function readCsrfTokenFromDocument() {
-  if (typeof document === 'undefined') return ''
-  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
-  return match ? decodeURIComponent(match[1]) : ''
+const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+
+let csrfToken = ''
+let sessionRefreshes = 0
+let sessionWaiters = []
+let csrfResync = null
+let csrfEpoch = 0
+
+function requestPath(url) {
+  const raw = String(url || '')
+  try {
+    if (/^https?:\/\//i.test(raw)) return new URL(raw).pathname
+  } catch {
+    /* Relative API paths are the normal case. */
+  }
+  return raw.split('?')[0]
 }
 
-api.interceptors.request.use((config) => {
+function isCsrfIssuingRequest(config) {
+  const method = String(config?.method || 'get').toLowerCase()
+  const path = requestPath(config?.url)
+  if (method === 'get' && /(^|\/)auth\/me$/.test(path)) return true
+  if (method === 'post' && /(^|\/)auth\/login$/.test(path)) return true
+  return false
+}
+
+function isLogoutRequest(config) {
+  const method = String(config?.method || 'get').toLowerCase()
+  return method === 'post' && /(^|\/)auth\/logout$/.test(requestPath(config?.url))
+}
+
+function beginSessionRefresh(config) {
+  sessionRefreshes += 1
+  config.csrfEpoch = csrfEpoch
+}
+
+function invalidateCsrfSession() {
+  csrfEpoch += 1
+  csrfToken = ''
+}
+
+function releaseSessionWaiters() {
+  if (sessionRefreshes > 0) return
+  const pending = sessionWaiters
+  sessionWaiters = []
+  pending.forEach((release) => release())
+}
+
+function endSessionRefresh(nextToken, replace) {
+  if (replace) {
+    csrfToken = typeof nextToken === 'string' ? nextToken : ''
+  } else if (typeof nextToken === 'string' && nextToken) {
+    csrfToken = nextToken
+  }
+  sessionRefreshes = Math.max(0, sessionRefreshes - 1)
+  releaseSessionWaiters()
+}
+
+function readIssuedToken(response) {
+  const headers = response?.headers
+  if (!headers) return ''
+  if (typeof headers.get === 'function') {
+    const fromGetter = headers.get('x-csrf-token')
+    if (typeof fromGetter === 'string' && fromGetter) return fromGetter
+  }
+  const value = headers['x-csrf-token'] || headers['X-CSRF-Token']
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
+  return typeof value === 'string' ? value : ''
+}
+
+async function waitForSessionRefresh() {
+  while (sessionRefreshes > 0) {
+    await new Promise((resolve) => {
+      sessionWaiters.push(resolve)
+    })
+  }
+}
+
+function isCsrfValidationFailed(error) {
+  return error?.response?.status === 403
+    && error?.response?.data?.error?.code === 'CSRF_VALIDATION_FAILED'
+}
+
+/**
+ * One shared GET /api/auth/me after CSRF rejection. Updates memory only.
+ * The failed mutation is not sent again.
+ */
+function resyncCsrfToken() {
+  if (csrfResync) return csrfResync
+  const epoch = csrfEpoch
+  let current
+  current = api.get('/auth/me')
+    .then((res) => {
+      if (epoch !== csrfEpoch) return
+      const token = readIssuedToken(res)
+      csrfToken = token || ''
+    })
+    .catch(() => {
+      if (epoch !== csrfEpoch) return
+      csrfToken = ''
+    })
+    .finally(() => {
+      if (csrfResync === current) csrfResync = null
+    })
+  csrfResync = current
+  return current
+}
+
+/** Test hook. Clears the in-memory CSRF token and any session-refresh waiters. */
+export function resetCsrfState() {
+  csrfToken = ''
+  sessionRefreshes = 0
+  csrfEpoch += 1
+  csrfResync = null
+  releaseSessionWaiters()
+}
+
+api.interceptors.request.use(async (config) => {
+  if (isCsrfIssuingRequest(config)) {
+    beginSessionRefresh(config)
+    config.csrfSession = true
+    return config
+  }
+
   const method = String(config.method || 'get').toLowerCase()
-  if (['post', 'put', 'patch', 'delete'].includes(method)) {
-    const csrf = readCsrfTokenFromDocument()
-    if (csrf) {
-      config.headers = config.headers || {}
-      config.headers['X-CSRF-Token'] = csrf
-    }
+  if (!MUTATING_METHODS.has(method)) return config
+
+  await waitForSessionRefresh()
+  if (csrfToken) {
+    config.headers = config.headers || {}
+    config.headers['X-CSRF-Token'] = csrfToken
   }
   return config
 })
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (res?.config?.csrfSession) {
+      const stillCurrent = res.config.csrfEpoch === csrfEpoch
+      endSessionRefresh(stillCurrent ? readIssuedToken(res) : '', stillCurrent)
+    } else if (isLogoutRequest(res?.config)) {
+      invalidateCsrfSession()
+    }
+    return res
+  },
   (error) => {
+    if (error?.config?.csrfSession) {
+      endSessionRefresh('', false)
+    }
     if (isCanceledError(error)) return Promise.reject(error)
+
+    const resync = isCsrfValidationFailed(error) && !error.config?.csrfSession
+      ? resyncCsrfToken()
+      : null
 
     logApiFailure(error)
 
@@ -82,7 +215,8 @@ api.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error)
+    if (!resync) return Promise.reject(error)
+    return resync.then(() => Promise.reject(error), () => Promise.reject(error))
   },
 )
 

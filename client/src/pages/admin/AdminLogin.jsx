@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { BrandLogo } from '../../components/common/BrandLogo.jsx'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux.js'
-import { clearError, login, selectAuth } from '../../store/slices/authSlice.js'
+import { clearError, login, logoutUser, selectAuth } from '../../store/slices/authSlice.js'
 
 export function AdminLogin() {
   const navigate = useNavigate()
@@ -25,20 +25,18 @@ export function AdminLogin() {
   }, [dispatch])
 
   useEffect(() => {
-    if (user) {
-      if (user.role === 'ADMIN') {
-        navigate(fromPath, { replace: true })
-      } else {
-        toast.error('This account is not an admin. Use the admin credentials.')
-      }
+    if (user?.role === 'ADMIN') {
+      navigate(fromPath, { replace: true })
     }
   }, [user, navigate, fromPath])
 
   async function onSubmit(e) {
     e.preventDefault()
     const result = await dispatch(login({ email, password }))
-    if (login.fulfilled.match(result) && result.payload?.user?.role !== 'ADMIN') {
-      toast.error('This account is not an admin.')
+    if (login.fulfilled.match(result) && result.payload?.role !== 'ADMIN') {
+      // The API refuses non-admin password sign-in; never keep such a session here.
+      await dispatch(logoutUser())
+      toast.error('This account is not an admin. Buyers and sellers sign in through Authify.')
     }
   }
 
@@ -86,10 +84,6 @@ export function AdminLogin() {
           <button className="btn btn--primary" type="submit" disabled={loading}>
             {loading ? 'Signing in…' : 'Login'}
           </button>
-
-          <div className="hint">
-            Demo admin: <code>admin@b2b.local</code> / <code>admin123</code>
-          </div>
         </form>
       </div>
     </div>

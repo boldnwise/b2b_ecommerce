@@ -14,6 +14,7 @@ const {
   PREMIUM_QA_SELLER,
   PREMIUM_QA_SELLER_2,
   PREMIUM_QA_SELLER_3,
+  PREMIUM_QA_BOTH,
   PREMIUM_QA_USERS,
   PREMIUM_SUBSCRIPTION_SPECS,
   PLAN_AMOUNTS_PAISE,
@@ -205,8 +206,9 @@ async function verifyBootstrap(users, { freshReset = false } = {}) {
 
     if (seedQa) {
       checks.push({
-        name: 'Premium subscriptions only (6)',
-        ok: empty.subscriptions === 6 && empty.payments === 6,
+        name: `Premium subscriptions only (${PREMIUM_SUBSCRIPTION_SPECS.length})`,
+        ok: empty.subscriptions === PREMIUM_SUBSCRIPTION_SPECS.length
+          && empty.payments === PREMIUM_SUBSCRIPTION_SPECS.length,
       })
       if (shouldSeedE2eProducts()) {
         const automationSeller = users[PREMIUM_AUTOMATION_SELLER.email]
@@ -256,7 +258,7 @@ async function verifyBootstrap(users, { freshReset = false } = {}) {
 
 function printReport(legacyRemoved, catalogStats, counts, verification) {
   const { checks, seedQa, freshReset } = verification
-  const userTotal = seedQa ? 15 : 9
+  const userTotal = seedQa ? 16 : 9
 
   console.log('')
   console.log(`=== Bootstrap report (${freshReset ? 'reset + seed' : 'safe seed'}) ===`)
@@ -273,6 +275,7 @@ function printReport(legacyRemoved, catalogStats, counts, verification) {
     console.log(`  PREMIUM_QA seller:        ${PREMIUM_QA_SELLER.email} (${PREMIUM_QA_SELLER.memberId}, fresh account)`)
     console.log(`  PREMIUM_QA seller 2:      ${PREMIUM_QA_SELLER_2.email} (${PREMIUM_QA_SELLER_2.memberId}, fresh account)`)
     console.log(`  PREMIUM_QA seller 3:      ${PREMIUM_QA_SELLER_3.email} (${PREMIUM_QA_SELLER_3.memberId}, fresh account)`)
+    console.log(`  PREMIUM_QA both:          ${PREMIUM_QA_BOTH.email} (${PREMIUM_QA_BOTH.memberId}, BOTH_LIFETIME)`)
   } else {
     console.log('  PREMIUM_* groups:         skipped (NODE_ENV=production, set SEED_QA=true to include)')
   }

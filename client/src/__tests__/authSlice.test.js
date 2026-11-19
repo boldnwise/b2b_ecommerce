@@ -3,7 +3,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Tests the reducer and thunks in isolation — no real network calls.
  * The auth service module is mocked so we control what loginRequest,
- * registerRequest, fetchMeRequest and logoutRequest return.
+ * fetchMeRequest and logoutRequest return.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -12,7 +12,6 @@ import { configureStore } from '@reduxjs/toolkit'
 // Mock the service layer before importing the slice
 vi.mock('../services/auth.service.js', () => ({
   loginRequest:    vi.fn(),
-  registerRequest: vi.fn(),
   fetchMeRequest:  vi.fn(),
   logoutRequest:   vi.fn().mockResolvedValue(undefined),
 }))
@@ -20,7 +19,6 @@ vi.mock('../services/auth.service.js', () => ({
 import {
   authReducer,
   login,
-  register,
   initializeAuth,
   logoutUser,
   logout,
@@ -153,52 +151,6 @@ describe('login thunk', () => {
 
     expect(store.getState().auth.status).toBe('loading')
     expect(store.getState().auth.error).toBeNull()
-  })
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// register thunk
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('register thunk', () => {
-  it('fulfilled – stores new user', async () => {
-    const newUser = { ...MOCK_USER, id: 'new-user-uuid', email: 'new@example.com' }
-    authApi.registerRequest.mockResolvedValue({ user: newUser })
-    const store = makeStore()
-
-    await store.dispatch(
-      register({ email: 'new@example.com', password: 'pass', role: 'BUYER' }),
-    )
-    expect(store.getState().auth.user).toEqual(newUser)
-  })
-
-  it('rejected – surfaces registration disabled message from API', async () => {
-    authApi.registerRequest.mockRejectedValue(
-      new Error(
-        'Public registration is not available. Sign in with an existing account or contact support.',
-      ),
-    )
-    const store = makeStore()
-
-    const action = await store.dispatch(
-      register({ email: 'x@example.com', password: 'pass', role: 'BUYER' }),
-    )
-
-    expect(register.rejected.match(action)).toBe(true)
-    expect(action.payload).toMatch(/not available/i)
-    expect(store.getState().auth.user).toBeNull()
-  })
-
-  it('rejected – stores error, user stays null', async () => {
-    authApi.registerRequest.mockRejectedValue(new Error('Email already registered'))
-    const store = makeStore()
-
-    await store.dispatch(
-      register({ email: 'dup@example.com', password: 'pass', role: 'BUYER' }),
-    )
-
-    expect(store.getState().auth.user).toBeNull()
-    expect(store.getState().auth.error).toBeTruthy()
   })
 })
 

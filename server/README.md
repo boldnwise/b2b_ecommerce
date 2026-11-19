@@ -42,8 +42,8 @@ Base URL: `/api`
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | — | Liveness |
-| POST | `/auth/register` | — | Register as `BUYER` or `SELLER` (disabled in production unless `ENABLE_PUBLIC_REGISTRATION=true`) |
-| POST | `/auth/login` | — | Login, returns JWT |
+| POST | `/auth/register` | — | Always 403 `REGISTRATION_DISABLED`; accounts are created through Authify SSO |
+| POST | `/auth/login` | — | Admin password login. Buyers and sellers get 403 `SSO_REQUIRED` |
 | GET | `/auth/me` | JWT | Current user |
 | GET | `/products` | Optional | List products (pagination, `search`, `sellerId`, `mine`, `includeInactive` for seller/admin) |
 | GET | `/products/:id` | Optional | Product detail |

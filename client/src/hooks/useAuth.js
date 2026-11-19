@@ -26,8 +26,8 @@ export function useAuth() {
 
 /**
  * Returns a logout function that clears the server cookie + Redux state.
- * Navigation is intentionally left to the caller (each layout already
- * does its own `navigate('/login')` after calling this).
+ * Navigation is intentionally left to the caller. Marketplace layouts go to
+ * `/session-required`. The admin layout goes to `/admin/login`.
  */
 export function useLogoutRedirect() {
   const dispatch = useAppDispatch()

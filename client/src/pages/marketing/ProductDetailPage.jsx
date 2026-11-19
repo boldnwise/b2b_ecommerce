@@ -107,7 +107,7 @@ export function ProductDetailPage() {
   const handleWishlist = useCallback(() => {
     if (!isAuthenticated) {
       toast('Sign in as a buyer to use the wishlist.', { icon: 'ℹ️' })
-      navigate('/login')
+      navigate('/session-required')
       return
     }
     if (!buyerWorkspace) {
@@ -127,7 +127,7 @@ export function ProductDetailPage() {
   const handleRequestQuote = useCallback(() => {
     if (!isAuthenticated) {
       toast('Sign in to request a quotation.', { icon: 'ℹ️' })
-      navigate('/login')
+      navigate('/session-required')
       return
     }
     if (!buyerWorkspace) {

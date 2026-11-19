@@ -5,7 +5,6 @@ import { HomeMarketingNav } from '../../components/common/HomeMarketingNav.jsx'
 import { PaymentCancelledNotice } from '../../components/common/PaymentCancelledNotice.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useRazorpayCheckout } from '../../hooks/useRazorpayCheckout.js'
-import { setIntendedRoute } from '../../utils/authStorage.js'
 import {
   bothBundlePlanId,
   dashboardAfterBothComplete,
@@ -20,8 +19,7 @@ export function SubscribeOptionsPage() {
   function subscribeAsBoth() {
     const bundlePlan = bothBundlePlanId({ sellerPlan: 'month', buyerPlan: 'standard' })
     if (!isAuthenticated) {
-      setIntendedRoute('/subscribe')
-      navigate('/login', { state: { from: { pathname: '/subscribe' } } })
+      navigate('/session-required', { state: { from: { pathname: '/subscribe' } } })
       return
     }
     startCheckout({
