@@ -310,19 +310,25 @@ describe('Integration API production defaults (regression)', () => {
   test('J – production loads with integration API disabled by default', () => {
     jest.isolateModules(() => {
       const prev = process.env.NODE_ENV
+      const prevSso = process.env.SSO_S2S_SECRET
       process.env.NODE_ENV = 'production'
       process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/app'
       process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long!'
+      process.env.SSO_S2S_SECRET = 'test-sso-s2s-secret-at-least-32-characters'
+      process.env.SSO_HANDOFF_ALLOWED_ORIGINS = 'https://portal.example.com'
       process.env.CLIENT_URL = 'https://app.example.com'
       process.env.RAZORPAY_KEY_ID = 'rzp_live_abc123'
       process.env.RAZORPAY_KEY_SECRET = 'live_secret_value'
       process.env.RAZORPAY_WEBHOOK_SECRET = 'webhook_secret_value'
       delete process.env.INTEGRATION_API_ENABLED
+      delete process.env.INTEGRATION_S2S_SHARED_SECRET
 
       const env = require('../../src/config/env.js')
       expect(env.integrationApiEnabled).toBe(false)
 
       process.env.NODE_ENV = prev
+      if (prevSso === undefined) delete process.env.SSO_S2S_SECRET
+      else process.env.SSO_S2S_SECRET = prevSso
     })
   })
 })

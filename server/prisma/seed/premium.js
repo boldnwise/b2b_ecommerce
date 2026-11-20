@@ -9,19 +9,22 @@ const { money, buildProductImages, buildDescription } = require('./helpers.js')
 
 const SUBSCRIPTION_ACTIVATED_AT = new Date('2026-01-01T00:00:00.000Z')
 
+/** The plan, not the user's role, decides which workspace it grants. BOTH_* grants both. */
 async function syncSubscriptionIdentity(prisma, userId, spec, plan) {
-  const subscriptionData =
-    spec.role === 'BUYER'
-      ? {
-          buyerSubscriptionStatus: 'ACTIVE',
-          buyerSubscriptionPlan: plan,
-          buyerSubscriptionActivatedAt: SUBSCRIPTION_ACTIVATED_AT,
-        }
-      : {
-          sellerSubscriptionStatus: 'ACTIVE',
-          sellerSubscriptionPlan: plan,
-          sellerSubscriptionActivatedAt: SUBSCRIPTION_ACTIVATED_AT,
-        }
+  const grantsBuyer = plan.startsWith('BUYER_') || plan.startsWith('BOTH_')
+  const grantsSeller = plan.startsWith('SELLER_') || plan.startsWith('BOTH_')
+  const subscriptionData = {
+    ...(grantsBuyer ? {
+      buyerSubscriptionStatus: 'ACTIVE',
+      buyerSubscriptionPlan: plan,
+      buyerSubscriptionActivatedAt: SUBSCRIPTION_ACTIVATED_AT,
+    } : {}),
+    ...(grantsSeller ? {
+      sellerSubscriptionStatus: 'ACTIVE',
+      sellerSubscriptionPlan: plan,
+      sellerSubscriptionActivatedAt: SUBSCRIPTION_ACTIVATED_AT,
+    } : {}),
+  }
 
   await prisma.user.update({
     where: { id: userId },

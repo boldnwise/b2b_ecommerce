@@ -14,6 +14,7 @@ cp .env.example .env
 |----------|----------|-------------|
 | `VITE_API_BASE_URL` | Production builds | Full API URL (`https://host.onrender.com/api`) or `/api` for Docker/nginx proxy |
 | `VITE_API_URL` | No | Legacy alias for `VITE_API_BASE_URL` |
+| `VITE_AUTHIFY_FRONTEND_URL` | No | Authify Main Portal origin for the "Continue to Authify" link (staging: `https://app-staging.boldnwise.com`) |
 | `VITE_BACKEND_URL` | Dev only | Vite dev-server proxy target (default `http://localhost:3001`) |
 
 **Local development** — no `.env` required; Vite proxies `/api` to `localhost:3001`.

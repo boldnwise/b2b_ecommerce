@@ -12,7 +12,7 @@ test.describe('Regression — end-to-end marketplace journeys', () => {
       await expect(page).toHaveURL(/\/products\//)
     }
     await page.goto('/buyer/dashboard')
-    await expect(page).toHaveURL(/\/login/)
+    await expect(page).toHaveURL(/\/session-required/)
   })
 
   test('buyer session persists across quotation and deals pages', async ({ page }) => {

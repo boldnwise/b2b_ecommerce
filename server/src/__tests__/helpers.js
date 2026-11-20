@@ -28,9 +28,18 @@ const IDS = {
 /**
  * Mint a signed JWT accepted by the test server.
  * The issuer and secret must match what verifyToken() expects.
+ * Defaults match real sessions: admins sign in with a password, everyone else through SSO.
+ * Pass authMethod: null to mint a token without the claim (pre-policy session).
  */
-function makeToken({ id = IDS.BUYER, email = 'test@example.com', role = 'BUYER' } = {}) {
-  return jwt.sign({ sub: id, email, role }, TEST_JWT_SECRET, {
+function makeToken({
+  id = IDS.BUYER,
+  email = 'test@example.com',
+  role = 'BUYER',
+  authMethod = role === 'ADMIN' ? 'password' : 'sso',
+} = {}) {
+  const claims = { sub: id, email, role }
+  if (authMethod) claims.authMethod = authMethod
+  return jwt.sign(claims, TEST_JWT_SECRET, {
     expiresIn: '1h',
     issuer: 'b2b-ecommerce-api',
     algorithm: 'HS256',

@@ -19,7 +19,6 @@ jest.mock('../../src/config/env.js', () => ({
   razorpayKeyId: '',
   razorpayKeySecret: '',
   mainPortalProfileEnabled: false,
-  enablePublicRegistration: false,
 }))
 
 const { agent, cookieFor, makeToken, IDS } = require('../../src/__tests__/helpers')

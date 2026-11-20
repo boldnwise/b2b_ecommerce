@@ -1,7 +1,7 @@
-const { verifyToken } = require('../utils/jwt.js')
+const { verifyToken, AUTH_METHODS } = require('../utils/jwt.js')
 const { AppError } = require('../utils/AppError.js')
 const { prisma } = require('../config/database.js')
-const { COOKIE_NAME } = require('../config/cookies.js')
+const { COOKIE_NAME, clearAuthCookieOptions } = require('../config/cookies.js')
 const { USER_SELECT } = require('../utils/serializeUser.js')
 
 /**
@@ -14,6 +14,16 @@ function extractToken(req) {
   const h = req.headers.authorization
   if (h && h.startsWith('Bearer ')) return h.slice(7).trim()
   return null
+}
+
+/**
+ * Buyer and seller sessions must come from Authify SSO; admin sessions must
+ * not. Uses the current database role, so a role change in either direction
+ * ends the existing session.
+ */
+function isAllowedSession(user, decoded) {
+  if (user.role === 'ADMIN') return decoded.authMethod !== AUTH_METHODS.SSO
+  return decoded.authMethod === AUTH_METHODS.SSO
 }
 
 /** Requires a valid JWT and attaches req.user { id, email, role, companyName } */
@@ -38,6 +48,14 @@ async function authenticate(req, res, next) {
     if (user.isActive === false) {
       throw new AppError('Your account has been deactivated. Contact support for assistance.', 403, 'ACCOUNT_DEACTIVATED')
     }
+    if (!isAllowedSession(user, decoded)) {
+      // A stale cookie would otherwise make the next Authify handoff require CSRF.
+      res.clearCookie(COOKIE_NAME, clearAuthCookieOptions())
+      if (user.role === 'ADMIN') {
+        throw new AppError('Sign in through the admin login.', 401, 'ADMIN_LOGIN_REQUIRED')
+      }
+      throw new AppError('Open B2B from the Authify Main Portal to sign in.', 401, 'SSO_SESSION_REQUIRED')
+    }
     req.user = user
     next()
   } catch (err) {
@@ -61,7 +79,7 @@ async function optionalAuth(req, res, next) {
       where: { id: userId },
       select: USER_SELECT,
     })
-    if (user) req.user = user
+    if (user && isAllowedSession(user, decoded)) req.user = user
   } catch {
     /* ignore invalid optional token */
   }

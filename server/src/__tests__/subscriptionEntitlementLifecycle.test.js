@@ -54,6 +54,43 @@ describe('buildSubscriptionSummary lifecycle', () => {
     expect(summary.hasSellerSubscription).toBe(true)
   })
 
+  test.each(['BOTH_MONTHLY', 'BOTH_ANNUAL', 'BOTH_LIFETIME'])(
+    'C – a single active %s row grants buyer and seller flags',
+    (plan) => {
+      const now = new Date('2026-06-01T12:00:00Z')
+      const subs = [
+        {
+          plan,
+          status: 'ACTIVE',
+          startsAt: new Date('2026-01-01'),
+          expiresAt: plan === 'BOTH_LIFETIME' ? null : new Date('2026-07-01'),
+        },
+      ]
+      const summary = buildSubscriptionSummary(user, subs, now)
+      expect(summary.hasBuyerSubscription).toBe(true)
+      expect(summary.hasSellerSubscription).toBe(true)
+      expect(summary.buyerSubscription.status).toBe('ACTIVE')
+      expect(summary.sellerSubscription.status).toBe('ACTIVE')
+    },
+  )
+
+  test('C – an expired BOTH row grants neither workspace', () => {
+    const now = new Date('2026-08-01T12:00:00Z')
+    const subs = [
+      {
+        plan: 'BOTH_MONTHLY',
+        status: 'ACTIVE',
+        startsAt: new Date('2026-06-01'),
+        expiresAt: new Date('2026-06-29'),
+      },
+    ]
+    const summary = buildSubscriptionSummary(user, subs, now)
+    expect(summary.hasBuyerSubscription).toBe(false)
+    expect(summary.hasSellerSubscription).toBe(false)
+    expect(summary.buyerSubscription.status).toBe('EXPIRED')
+    expect(summary.sellerSubscription.status).toBe('EXPIRED')
+  })
+
   test('D – expired by expiresAt reports EXPIRED and inactive flags', () => {
     const now = new Date('2026-08-01T12:00:00Z')
     const subs = [

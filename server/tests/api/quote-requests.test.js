@@ -160,7 +160,7 @@ describe('RFQ / quote-request APIs', () => {
   test('201 – subscribed buyer can create RFQ for one seller', async () => {
     mockSubscribedBuyer()
     prisma.product.findUnique.mockResolvedValue(makeProduct())
-    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER }])
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER, role: 'SELLER', isActive: true }])
     prisma.quoteRequest.create.mockResolvedValue(makeQuoteRow())
 
     const res = await agent
@@ -190,11 +190,29 @@ describe('RFQ / quote-request APIs', () => {
     expect(res.body.data.request.buyerId).toBeUndefined()
   })
 
+  test('400 – BOTH account cannot send an RFQ to its own seller account', async () => {
+    const bothToken = makeToken({ id: IDS.BUYER, role: 'BUYER' })
+    prisma.user.findUnique.mockResolvedValue({ id: IDS.BUYER, role: 'BUYER', isActive: true })
+    prisma.subscription.findFirst.mockResolvedValue({ id: 'sub-both', status: 'ACTIVE', plan: 'BOTH_LIFETIME' })
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.BUYER, role: 'BUYER', isActive: true }])
+
+    const res = await agent
+      .post('/api/quote-requests')
+      .set(cookieFor(bothToken))
+      .send({ ...baseCreatePayload, sellerIds: [IDS.BUYER] })
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('VALIDATION_ERROR')
+    expect(res.body.error.message).toBe('You cannot send an RFQ to your own seller account')
+    expect(prisma.rfqGroup.create).not.toHaveBeenCalled()
+    expect(prisma.quoteRequest.create).not.toHaveBeenCalled()
+  })
+
   test('201 – creates one QuoteRequest per seller with shared rfqGroupId', async () => {
     mockSubscribedBuyer()
     prisma.user.findMany.mockResolvedValue([
-      { id: IDS.SELLER },
-      { id: IDS.OTHER_SELLER },
+      { id: IDS.SELLER, role: 'SELLER', isActive: true },
+      { id: IDS.OTHER_SELLER, role: 'SELLER', isActive: true },
     ])
 
     const row1 = makeQuoteRow({ id: RFQ_ID, sellerId: IDS.SELLER })
@@ -252,7 +270,7 @@ describe('RFQ / quote-request APIs', () => {
   test('201 – RFQ without attachments', async () => {
     mockSubscribedBuyer()
     prisma.product.findUnique.mockResolvedValue(makeProduct())
-    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER }])
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER, role: 'SELLER', isActive: true }])
     prisma.quoteRequest.create.mockResolvedValue(makeQuoteRow())
 
     const res = await agent
@@ -269,7 +287,7 @@ describe('RFQ / quote-request APIs', () => {
   test('201 – RFQ with uploaded relative attachment URL', async () => {
     mockSubscribedBuyer()
     prisma.product.findUnique.mockResolvedValue(makeProduct())
-    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER }])
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER, role: 'SELLER', isActive: true }])
     prisma.quoteRequest.create.mockResolvedValue(makeQuoteRow({
       attachments: [{
         name: 'spec.pdf',
@@ -297,7 +315,7 @@ describe('RFQ / quote-request APIs', () => {
   test('201 – RFQ with multiple attachment URLs', async () => {
     mockSubscribedBuyer()
     prisma.product.findUnique.mockResolvedValue(makeProduct())
-    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER }])
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER, role: 'SELLER', isActive: true }])
     prisma.quoteRequest.create.mockResolvedValue(makeQuoteRow())
 
     const res = await agent
@@ -318,7 +336,7 @@ describe('RFQ / quote-request APIs', () => {
   test('201 – empty attachments array is accepted', async () => {
     mockSubscribedBuyer()
     prisma.product.findUnique.mockResolvedValue(makeProduct())
-    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER }])
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER, role: 'SELLER', isActive: true }])
     prisma.quoteRequest.create.mockResolvedValue(makeQuoteRow())
 
     const res = await agent
@@ -367,7 +385,7 @@ describe('RFQ / quote-request APIs', () => {
   test('201 – empty-string attachment entries are dropped', async () => {
     mockSubscribedBuyer()
     prisma.product.findUnique.mockResolvedValue(makeProduct())
-    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER }])
+    prisma.user.findMany.mockResolvedValue([{ id: IDS.SELLER, role: 'SELLER', isActive: true }])
     prisma.quoteRequest.create.mockResolvedValue(makeQuoteRow())
 
     const res = await agent
@@ -620,5 +638,105 @@ describe('Quotation respond / accept APIs', () => {
 
     expect(res.status).toBe(409)
     expect(res.body.error.message).toMatch(/closed/i)
+  })
+
+  test('BOTH account with BUYER role can respond to its own pending quotation', async () => {
+    const bothToken = makeToken({ id: IDS.SELLER, role: 'BUYER' })
+    prisma.user.findUnique.mockResolvedValue({ id: IDS.SELLER, role: 'BUYER', isActive: true })
+    prisma.subscription.findFirst.mockResolvedValue({ id: 'sub-seller', status: 'ACTIVE', plan: 'SELLER_MONTHLY' })
+    const pending = makeQuoteRow({ status: 'PENDING', sellerId: IDS.SELLER })
+    prisma.quoteRequest.findUnique.mockResolvedValue(pending)
+    prisma.quoteRequest.findFirst.mockResolvedValue(null)
+    prisma.quoteRevision.findMany.mockResolvedValue([])
+    prisma.quoteRequest.update.mockImplementation(async ({ data }) => ({
+      ...pending,
+      status: data.status ?? pending.status,
+      sellerCurrency: data.sellerCurrency ?? 'INR',
+      sellerUnitPrice: data.sellerUnitPrice != null ? { toString: () => '100.00' } : null,
+      sellerRespondedAt: data.sellerRespondedAt ?? null,
+      revisionCount: data.revisionCount ?? 0,
+    }))
+
+    const res = await agent
+      .patch(`/api/quote-requests/${RFQ_ID}/respond`)
+      .set(cookieFor(bothToken))
+      .send({ sellerUnitPrice: 100 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.request.status).toBe('RESPONDED')
+    expect(prisma.quoteRequest.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: RFQ_ID },
+        data: expect.objectContaining({ status: 'RESPONDED' }),
+      }),
+    )
+  })
+
+  test('BOTH account can revise its own responded quotation', async () => {
+    const bothToken = makeToken({ id: IDS.SELLER, role: 'BUYER' })
+    prisma.user.findUnique.mockResolvedValue({ id: IDS.SELLER, role: 'BUYER', isActive: true })
+    prisma.subscription.findFirst.mockResolvedValue({ id: 'sub-seller', status: 'ACTIVE', plan: 'SELLER_MONTHLY' })
+    const responded = makeQuoteRow({
+      status: 'RESPONDED',
+      sellerId: IDS.SELLER,
+      sellerUnitPrice: { toString: () => '90.00' },
+    })
+    prisma.quoteRequest.findUnique.mockResolvedValue(responded)
+    prisma.quoteRequest.findFirst.mockResolvedValue(null)
+    prisma.quoteRevision.findMany.mockResolvedValue([])
+    prisma.quoteRequest.update.mockImplementation(async ({ data }) => ({
+      ...responded,
+      status: data.status ?? responded.status,
+      sellerUnitPrice: data.sellerUnitPrice != null ? { toString: () => '110.00' } : responded.sellerUnitPrice,
+    }))
+
+    const res = await agent
+      .patch(`/api/quote-requests/${RFQ_ID}/respond`)
+      .set(cookieFor(bothToken))
+      .send({ sellerUnitPrice: 110 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.request.status).toBe('RESPONDED')
+  })
+
+  test('403 – buyer who does not own the quotation cannot respond', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: IDS.BUYER, role: 'BUYER', isActive: true })
+    prisma.subscription.findFirst.mockResolvedValue({ id: 'sub-seller', status: 'ACTIVE', plan: 'SELLER_MONTHLY' })
+    prisma.quoteRequest.findUnique.mockResolvedValue(makeQuoteRow({
+      status: 'PENDING',
+      sellerId: IDS.SELLER,
+    }))
+
+    const res = await agent
+      .patch(`/api/quote-requests/${RFQ_ID}/respond`)
+      .set(cookieFor(buyerToken))
+      .send({ sellerUnitPrice: 100 })
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('FORBIDDEN')
+    expect(prisma.quoteRequest.update).not.toHaveBeenCalled()
+  })
+
+  test('ADMIN can still respond to a pending quotation', async () => {
+    const adminToken = makeToken({ id: IDS.ADMIN, role: 'ADMIN' })
+    prisma.user.findUnique.mockResolvedValue({ id: IDS.ADMIN, role: 'ADMIN', isActive: true })
+    const pending = makeQuoteRow({ status: 'PENDING', sellerId: IDS.SELLER })
+    prisma.quoteRequest.findUnique.mockResolvedValue(pending)
+    prisma.quoteRequest.findFirst.mockResolvedValue(null)
+    prisma.quoteRevision.findMany.mockResolvedValue([])
+    prisma.quoteRequest.update.mockImplementation(async ({ data }) => ({
+      ...pending,
+      status: data.status ?? pending.status,
+      sellerUnitPrice: data.sellerUnitPrice != null ? { toString: () => '100.00' } : null,
+    }))
+
+    const res = await agent
+      .patch(`/api/quote-requests/${RFQ_ID}/respond`)
+      .set(cookieFor(adminToken))
+      .send({ sellerUnitPrice: 100 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.request.status).toBe('RESPONDED')
   })
 })

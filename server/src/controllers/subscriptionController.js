@@ -14,6 +14,8 @@ const {
   syncDenormalizedSubscriptionFields,
   hasEverActivatedBuyerSub,
   hasEverActivatedSellerSub,
+  BUYER_ENTITLEMENT_PLANS,
+  SELLER_ENTITLEMENT_PLANS,
 } = require('../services/subscriptionSyncService.js')
 const { serializeUser, USER_SELECT } = require('../utils/serializeUser.js')
 
@@ -83,12 +85,8 @@ async function applySubscriptionSync(tx, userId, subscriptions) {
 }
 
 function buildSubscriptionSummary(user, subscriptions, now) {
-  const allBuyerSubs = subscriptions.filter(
-    (s) => s.plan === 'BUYER_MONTHLY' || s.plan === 'BUYER_ANNUAL' || s.plan === 'BUYER_LIFETIME',
-  )
-  const allSellerSubs = subscriptions.filter(
-    (s) => s.plan === 'SELLER_MONTHLY' || s.plan === 'SELLER_ANNUAL' || s.plan === 'SELLER_LIFETIME',
-  )
+  const allBuyerSubs = subscriptions.filter((s) => BUYER_ENTITLEMENT_PLANS.has(s.plan))
+  const allSellerSubs = subscriptions.filter((s) => SELLER_ENTITLEMENT_PLANS.has(s.plan))
 
   const latestBuyerSub = allBuyerSubs[0] ?? null
   const latestSellerSub = allSellerSubs[0] ?? null

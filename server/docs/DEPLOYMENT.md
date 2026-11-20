@@ -123,6 +123,8 @@ Read from `server/src/config/env.js` unless noted. Do not set variables the proc
 |----------|-------------|
 | `NODE_ENV` | Set to `production` on AWS API hosts (cookie/CORS production rules) |
 | `CLIENT_URL` | Browser origin for CORS + cookies (comma-separated allowed). **Must match the frontend Origin exactly** (no trailing slash). HTTPS non-localhost origins enable `SameSite=None; Secure`. **There is no `USE_CROSS_SITE_COOKIES` env var** — that flag is derived from `CLIENT_URL` / `CORS_ALLOWED_ORIGINS`. Localhost is rejected in production. |
+| `SSO_S2S_SECRET` | Shared HMAC secret for Authify's server-to-server ticket requests. **≥32 characters**, unique, and **must differ from `JWT_SECRET` and `INTEGRATION_S2S_SHARED_SECRET`**. Startup refuses a missing, short, or reused value (staging included). |
+| `SSO_HANDOFF_ALLOWED_ORIGINS` | Authify frontend origin(s) allowed to submit the sign-in handoff to `POST /sso/consume` (comma-separated if multiple). **Exact `https` origins only** — no paths, wildcards, or localhost. Startup refuses an empty or invalid list. Staging: `https://app-staging.boldnwise.com` |
 
 These are **not** required for `npm start`. They change behavior or are used only by the migration task.
 
@@ -187,6 +189,21 @@ npm run build
 | Local production-mode test | `http://localhost:3001/api` |
 
 Rebuild after changing `VITE_*`. `VITE_BACKEND_URL` is **dev-server proxy only**, not the production API base.
+
+`VITE_AUTHIFY_FRONTEND_URL` is the Authify Main Portal origin. The B2B session page links signed-out users to `<origin>/my-apps`; the link is hidden when the value is unset or not HTTPS.
+
+| Environment | `VITE_AUTHIFY_FRONTEND_URL` |
+|-------------|-----------------------------|
+| Staging | `https://app-staging.boldnwise.com` |
+
+The API needs the same Authify origin in `SSO_HANDOFF_ALLOWED_ORIGINS`. Authify's page submits the
+sign-in handoff form to `POST /sso/consume`, and the API accepts it only when the browser's `Origin`
+header is in this list. This works whether or not the user already has a B2B session. With
+`NODE_ENV=production` the API refuses to start when the list is empty.
+
+| Environment | `SSO_HANDOFF_ALLOWED_ORIGINS` (API) |
+|-------------|-------------------------------------|
+| Staging | `https://app-staging.boldnwise.com` |
 
 Set API `CLIENT_URL` to the **CloudFront (or other HTTPS) origin** the browser uses, not the S3 website endpoint if that is not the Origin header.
 

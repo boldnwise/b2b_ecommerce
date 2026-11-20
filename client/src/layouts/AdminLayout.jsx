@@ -95,7 +95,7 @@ export function AdminLayout() {
 
   function onLogout() {
     logout()
-    navigate('/login', { replace: true })
+    navigate('/admin/login', { replace: true })
   }
 
   async function onQuickExport() {

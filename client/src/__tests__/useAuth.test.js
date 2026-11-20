@@ -13,7 +13,6 @@ import React from 'react'
 
 vi.mock('../services/auth.service.js', () => ({
   loginRequest:    vi.fn(),
-  registerRequest: vi.fn(),
   fetchMeRequest:  vi.fn(),
   logoutRequest:   vi.fn().mockResolvedValue(undefined),
 }))

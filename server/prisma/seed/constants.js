@@ -60,6 +60,7 @@ const PREMIUM_AUTOMATION_BUYER = {
   password: PASSWORDS.buyer,
   group: 'PREMIUM_AUTOMATION',
   memberId: 'USR-DEMO-000001',
+  authifyUserId: '900000000001',
   companyName: 'Premium Automation Buyer',
   address: {
     label: 'Head Office',
@@ -78,6 +79,7 @@ const PREMIUM_AUTOMATION_SELLER = {
   password: PASSWORDS.seller,
   group: 'PREMIUM_AUTOMATION',
   memberId: 'USR-DEMO-000002',
+  authifyUserId: '900000000002',
   companyName: 'Premium Automation Seller',
   address: {
     label: 'Warehouse',
@@ -99,6 +101,7 @@ const PREMIUM_QA_BUYER = {
   password: PASSWORDS.buyer,
   group: 'PREMIUM_QA',
   memberId: 'USR-DEMO-000003',
+  authifyUserId: '900000000003',
   companyName: 'Premium QA Buyer',
   address: {
     label: 'Head Office',
@@ -117,6 +120,7 @@ const PREMIUM_QA_SELLER = {
   password: PASSWORDS.seller,
   group: 'PREMIUM_QA',
   memberId: 'USR-DEMO-000004',
+  authifyUserId: '900000000004',
   companyName: 'Premium QA Seller',
   address: {
     label: 'Warehouse',
@@ -136,6 +140,7 @@ const PREMIUM_QA_SELLER_2 = {
   password: PASSWORDS.seller2,
   group: 'PREMIUM_QA',
   memberId: 'USR-DEMO-000005',
+  authifyUserId: '900000000005',
   companyName: 'Test Seller 2',
   address: {
     label: 'Warehouse',
@@ -154,6 +159,7 @@ const PREMIUM_QA_SELLER_3 = {
   password: PASSWORDS.seller3,
   group: 'PREMIUM_QA',
   memberId: 'USR-DEMO-000006',
+  authifyUserId: '900000000006',
   companyName: 'Test Seller 3',
   address: {
     label: 'Warehouse',
@@ -166,11 +172,32 @@ const PREMIUM_QA_SELLER_3 = {
   },
 }
 
+/** One BOTH_LIFETIME subscription — grants the buyer and seller workspaces together */
+const PREMIUM_QA_BOTH = {
+  email: 'both.premium1@test.com',
+  role: 'BUYER',
+  password: PASSWORDS.buyer,
+  group: 'PREMIUM_QA',
+  memberId: 'USR-DEMO-000007',
+  authifyUserId: '900000000007',
+  companyName: 'Premium QA Both',
+  address: {
+    label: 'Head Office',
+    line1: '7, QA Trade Centre',
+    line2: 'Koramangala',
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    postalCode: '560034',
+    phone: '9876530007',
+  },
+}
+
 const PREMIUM_QA_USERS = [
   PREMIUM_QA_BUYER,
   PREMIUM_QA_SELLER,
   PREMIUM_QA_SELLER_2,
   PREMIUM_QA_SELLER_3,
+  PREMIUM_QA_BOTH,
 ]
 
 const PREMIUM_USERS = [...PREMIUM_AUTOMATION_USERS, ...PREMIUM_QA_USERS]
@@ -206,6 +233,11 @@ const PREMIUM_SUBSCRIPTION_SPECS = [
     email: PREMIUM_QA_SELLER_3.email,
     plan: 'SELLER_LIFETIME',
     paymentKey: 'bootstrap_premium_qa_seller3_sub',
+  },
+  {
+    email: PREMIUM_QA_BOTH.email,
+    plan: 'BOTH_LIFETIME',
+    paymentKey: 'bootstrap_premium_qa_both1_sub',
   },
 ]
 
@@ -350,6 +382,7 @@ module.exports = {
   PREMIUM_QA_SELLER,
   PREMIUM_QA_SELLER_2,
   PREMIUM_QA_SELLER_3,
+  PREMIUM_QA_BOTH,
   PREMIUM_QA_USERS,
   PREMIUM_USERS,
   PREMIUM_USER_EMAILS,

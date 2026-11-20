@@ -25,6 +25,7 @@
     "db:seed": "node prisma/seed.js",
     "db:reset": "node prisma/seed/reset.js",
     "db:seed:qa-sellers-2-3": "node prisma/seed/upsert-qa-sellers-2-3.js",
+    "db:seed:e2e-products": "node prisma/seed/upsert-e2e-products.js",
     "db:uat-cleanup": "node prisma/seed/uat-cleanup.js",
     "db:ci:setup": "prisma generate && prisma migrate deploy && node prisma/seed/reset.js && npm run catalog:migrate && npm run catalog:seed",
     "db:seed:prod": "NODE_ENV=production node prisma/seed.js",

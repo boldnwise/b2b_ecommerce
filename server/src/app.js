@@ -36,7 +36,9 @@ const corsOptions    = require('./config/cors.js')
 const requestLogger  = require('./middleware/requestLogger.js')
 const { metricsMiddleware } = require('./middleware/metrics.js')
 const { csrfProtection } = require('./middleware/csrfProtection.js')
+const { ssoConsumeLimiter } = require('./middleware/authRateLimiter.js')
 const { handleRazorpayWebhook } = require('./controllers/subscriptionWebhookController.js')
+const { issueTicket, consumeBrowserHandoff } = require('./controllers/ssoController.js')
 const routes         = require('./routes/index.js')
 const catalogRoutes  = require('./routes/catalog.routes.js')
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler.js')
@@ -78,9 +80,25 @@ app.post(
   express.raw({ type: 'application/json' }),
   handleRazorpayWebhook,
 )
+app.post(
+  '/api/sso/issue-ticket',
+  express.raw({ type: () => true, limit: '32kb' }),
+  issueTicket,
+)
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
 app.use(csrfProtection)
+app.post(
+  '/sso/consume',
+  ssoConsumeLimiter,
+  express.urlencoded({
+    extended: false,
+    limit: '1kb',
+    parameterLimit: 5,
+    type: 'application/x-www-form-urlencoded',
+  }),
+  consumeBrowserHandoff,
+)
 
 // ── Uploaded contact attachments (disk in dev; DB fallback in production) ───
 app.get(

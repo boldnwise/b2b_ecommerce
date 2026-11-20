@@ -181,13 +181,44 @@ const integrationAllowDevNegotiationStub =
 
 const integrationNegotiationVerifyUrl = optional('INTEGRATION_NEGOTIATION_VERIFY_URL', '')
 const integrationS2sSharedSecret = optional('INTEGRATION_S2S_SHARED_SECRET', '')
+/**
+ * Dedicated HMAC key for Main Portal ticket issue.
+ * Empty in local development disables the issue endpoint.
+ * Never the JWT or integration secret, and never logged.
+ */
+const ssoS2sSecret = optional('SSO_S2S_SECRET', '')
+const ssoIssueEnabled = ssoS2sSecret.length > 0
+
+/**
+ * Authify frontend origins allowed to submit the browser handoff form to /sso/consume.
+ * The handoff POST is verified by its Origin header instead of a CSRF token, because the
+ * Authify page cannot read B2B's CSRF cookie. Empty means every handoff is refused.
+ */
+function parseSsoHandoffOrigins(raw) {
+  const origins = []
+  for (const entry of String(raw || '').split(',').map((s) => s.trim()).filter(Boolean)) {
+    let url
+    try {
+      url = new URL(entry)
+    } catch {
+      throw new Error(`[config] SSO_HANDOFF_ALLOWED_ORIGINS contains an invalid URL: ${entry}`)
+    }
+    const isLocalHost = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+    const allowed = url.protocol === 'https:' || (!isProd && url.protocol === 'http:' && isLocalHost)
+    if (!allowed || (isProd && isLocalHost) || entry.includes('*')) {
+      throw new Error(
+        '[config] SSO_HANDOFF_ALLOWED_ORIGINS must list exact https origins'
+        + (isProd ? ' (no localhost in production).' : ' (http is allowed only for localhost).'),
+      )
+    }
+    origins.push(url.origin)
+  }
+  return dedupeOrigins(origins)
+}
+
+const ssoHandoffAllowedOrigins = parseSsoHandoffOrigins(optional('SSO_HANDOFF_ALLOWED_ORIGINS', ''))
 
 const csrfProtectionEnabled = optional('CSRF_PROTECTION_ENABLED', isProd ? 'true' : 'true') === 'true'
-
-/** Public B2B self-registration (POST /auth/register). Off in production unless explicitly enabled. */
-const enablePublicRegistration = isProd
-  ? optional('ENABLE_PUBLIC_REGISTRATION', 'false') === 'true'
-  : optional('ENABLE_PUBLIC_REGISTRATION', 'true') === 'true'
 
 const sentryDsn = optional('SENTRY_DSN', '')
 
@@ -265,6 +296,19 @@ function assertProductionRazorpayKeys() {
   }
 }
 
+function assertDeployedSsoSecret(secret) {
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      '[config] SSO_S2S_SECRET must be at least 32 characters when NODE_ENV=production.',
+    )
+  }
+  if (secret === jwtSecret || (integrationS2sSharedSecret && secret === integrationS2sSharedSecret)) {
+    throw new Error(
+      '[config] SSO_S2S_SECRET must be distinct from JWT_SECRET and INTEGRATION_S2S_SHARED_SECRET.',
+    )
+  }
+}
+
 if (isProd) {
   assertProductionJwtSecret(jwtSecret)
   if (!isStaging) {
@@ -273,6 +317,12 @@ if (isProd) {
     console.warn(
       '[config] APP_ENV=staging — Razorpay keys not configured. '
       + 'Subscription checkout and webhooks remain unavailable until keys are set.',
+    )
+  }
+  assertDeployedSsoSecret(ssoS2sSecret)
+  if (ssoHandoffAllowedOrigins.length === 0) {
+    throw new Error(
+      '[config] SSO_HANDOFF_ALLOWED_ORIGINS must list the Authify frontend origin when NODE_ENV=production.',
     )
   }
 }
@@ -304,8 +354,10 @@ module.exports = Object.freeze({
   integrationAllowDevNegotiationStub,
   integrationNegotiationVerifyUrl,
   integrationS2sSharedSecret,
+  ssoS2sSecret,
+  ssoIssueEnabled,
+  ssoHandoffAllowedOrigins,
   csrfProtectionEnabled,
-  enablePublicRegistration,
   sentryDsn,
   mainPortalProfileEnabled: optional('MAIN_PORTAL_PROFILE_ENABLED', 'false') === 'true',
   allowDummyDealPayments,

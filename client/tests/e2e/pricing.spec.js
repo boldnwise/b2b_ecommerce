@@ -13,7 +13,7 @@ test.describe('Subscription / pricing page', () => {
     const subscribeBtn = page.getByRole('button', { name: /subscribe|get started|choose/i }).first()
     if (await subscribeBtn.isVisible()) {
       await subscribeBtn.click()
-      await expect(page).toHaveURL(/\/(login|pricing)/)
+      await expect(page).toHaveURL(/\/session-required/)
     }
   })
 })

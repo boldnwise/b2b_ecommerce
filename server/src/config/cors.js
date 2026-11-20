@@ -65,7 +65,7 @@ const corsOptions = Object.freeze({
   credentials:    true,
   methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: env.corsAllowedHeaders,
-  exposedHeaders: [],
+  exposedHeaders: ['X-CSRF-Token'],
   maxAge:         600,
 })
 

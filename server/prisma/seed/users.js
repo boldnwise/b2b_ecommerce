@@ -39,6 +39,8 @@ function buildUserData(spec, passwordHash, { preserveExistingState = false } = {
   return {
     ...base,
     portalUserId: spec.memberId ?? null,
+    // Fixed Authify ids so local Playwright runs can sign these QA users in through SSO.
+    ...(spec.authifyUserId ? { authifyUserId: spec.authifyUserId } : {}),
   }
 }
 

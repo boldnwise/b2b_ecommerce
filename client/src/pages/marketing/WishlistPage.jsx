@@ -51,11 +51,6 @@ export function WishlistPage() {
                 menuClassName="dashboardMenu dashboardMenu--mpNav"
               />
             ) : null}
-            {authInitialized && !isAuthenticated ? (
-              <Link to="/login" className="mpNav__link mpNav__link--signin">
-                Sign in
-              </Link>
-            ) : null}
           </nav>
         </div>
       </header>

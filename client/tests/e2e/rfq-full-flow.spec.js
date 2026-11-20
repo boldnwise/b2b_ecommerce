@@ -6,8 +6,8 @@ import { PREMIUM_QA_USERS, TEST_USERS } from '../fixtures/test-users.js'
 const FLOW_SELLERS_BY_PORTAL_ID = {
   'USR-DEMO-000002': TEST_USERS.seller,
   'USR-DEMO-000004': PREMIUM_QA_USERS.seller,
-  'USR-DEMO-000005': { email: 'seller2@test.com', password: 'Ks9#mPq2vWx7nRj4' },
-  'USR-DEMO-000006': { email: 'seller3@test.com', password: 'Ln8@wYb5Fc3hKm9' },
+  'USR-DEMO-000005': PREMIUM_QA_USERS.seller2,
+  'USR-DEMO-000006': PREMIUM_QA_USERS.seller3,
 }
 
 async function expectBuyerRfqLoaded(page, { productTitle, requirement }) {
@@ -29,19 +29,28 @@ async function expectSellerRfqLoaded(page, { productTitle, requirement }) {
   await expect(requirementLocator).toBeVisible()
 }
 
+/** The API returns at most 50 products per page, newest first, so follow nextCursor. */
 async function findFlowProduct(request) {
-  const catalogRes = await request.get('/api/catalog/products?limit=100')
-  expect(catalogRes.ok()).toBeTruthy()
-  const products = (await catalogRes.json()).data?.products || []
+  let cursor = null
+  do {
+    const query = cursor ? `limit=50&cursor=${encodeURIComponent(cursor)}` : 'limit=50'
+    const catalogRes = await request.get(`/api/catalog/products?${query}`)
+    expect(catalogRes.ok()).toBeTruthy()
+    const data = (await catalogRes.json()).data || {}
 
-  for (const product of products) {
-    const seller = FLOW_SELLERS_BY_PORTAL_ID[product.seller?.portalUserId]
-    if (seller) {
-      return { product, seller, productTitle: product.title }
+    for (const product of data.products || []) {
+      const seller = FLOW_SELLERS_BY_PORTAL_ID[product.seller?.portalUserId]
+      if (seller) {
+        return { product, seller, productTitle: product.title }
+      }
     }
-  }
+    cursor = data.nextCursor
+  } while (cursor)
 
-  throw new Error('No catalog product is owned by a subscribed Playwright seller account')
+  throw new Error(
+    'No catalog product is owned by a subscribed Playwright seller account. '
+      + 'Run `npm run db:seed:e2e-products` in server/ against the local test database.',
+  )
 }
 
 test.describe('RFQ full flow', () => {

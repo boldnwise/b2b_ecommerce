@@ -38,11 +38,6 @@ export function HomeMarketingNav({ tagline = 'Procurement & supply' }) {
           Pricing
         </Link>
         {initialized && isAuthenticated ? <MyDashboardMenu /> : null}
-        {initialized && !isAuthenticated ? (
-          <Link to="/login" className="subNav__link subNav__link--signin">
-            Sign in
-          </Link>
-        ) : null}
       </nav>
     </header>
   )

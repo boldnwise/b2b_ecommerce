@@ -1,93 +1,70 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
-import { useAppSelector } from '../../hooks/redux.js'
+import { useAppDispatch, useAppSelector } from '../../hooks/redux.js'
 import {
+  loadSubscriptionStatus,
   selectHasBuyerSubscription,
   selectHasSellerSubscription,
+  selectSubscriptionError,
+  selectSubscriptionStatus,
 } from '../../store/slices/subscriptionSlice.js'
-import {
-  BUYER_DASHBOARD_PATH,
-  SELLER_DASHBOARD_PATH,
-  canAccessBuyerWorkspace,
-  canAccessSellerWorkspace,
-} from '../../utils/portalNav.js'
+
+/**
+ * Destination after a B2B session exists and subscription status has loaded.
+ * Buyer is preferred when both subscriptions are active. Role alone is not a subscription.
+ */
+export function subscriptionLandingPath({ hasBuyer = false, hasSeller = false } = {}) {
+  if (hasBuyer) return '/buyer/dashboard'
+  if (hasSeller) return '/seller/dashboard'
+  return '/pricing'
+}
 
 export function PortalHome() {
-  const { user } = useAuth()
+  const navigate = useNavigate()
+  const dispatch = useAppDispatch()
+  const { user, initialized } = useAuth()
   const hasBuyerSub = useAppSelector(selectHasBuyerSubscription)
   const hasSellerSub = useAppSelector(selectHasSellerSubscription)
-  const role = user?.role
-  const buyerAccess = canAccessBuyerWorkspace(role, hasBuyerSub)
-  const sellerAccess = canAccessSellerWorkspace(role, hasSellerSub)
+  const status = useAppSelector(selectSubscriptionStatus)
+  const error = useAppSelector(selectSubscriptionError)
+
+  useEffect(() => {
+    if (!initialized || !user) return
+    if (status !== 'idle') return
+    dispatch(loadSubscriptionStatus())
+  }, [dispatch, initialized, status, user])
+
+  useEffect(() => {
+    if (!initialized || !user) return
+    if (status !== 'succeeded') return
+    navigate(
+      subscriptionLandingPath({ hasBuyer: hasBuyerSub, hasSeller: hasSellerSub }),
+      { replace: true },
+    )
+  }, [hasBuyerSub, hasSellerSub, initialized, navigate, status, user])
+
+  if (status === 'failed') {
+    return (
+      <div className="sellerDashboard">
+        <h1 className="sellerDashboard__greeting">Subscription status unavailable</h1>
+        <p className="sellerDashboard__sub">
+          {error || 'Your session is still active. We could not confirm your plan, so you were not redirected.'}
+        </p>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => dispatch(loadSubscriptionStatus())}
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="sellerDashboard">
-      <div className="sellerDashboard__pageTitle">
-        <h1 className="sellerDashboard__greeting">
-          Welcome, {user?.companyName || user?.email || 'there'}!
-        </h1>
-        <p className="sellerDashboard__sub">
-          {buyerAccess && sellerAccess
-            ? 'Use the workspace switcher in the header to work in buyer or seller mode — one workspace at a time.'
-            : buyerAccess
-              ? 'Open your buyer workspace, browse the catalog, manage plans, or contact platform admin.'
-              : sellerAccess
-                ? 'Open your seller workspace, manage listings, view plans, or contact platform admin.'
-                : 'Use the menu to manage your account.'}
-        </p>
-      </div>
-
-      <div className="sellerDashboard__grid" style={{ marginTop: 8 }}>
-        {buyerAccess ? (
-          <div className="metricCard metricCard--blue">
-            <div className="metricCard__label">Buyer plan</div>
-            <div className="metricCard__value">{hasBuyerSub ? 'Active' : 'Not subscribed'}</div>
-            <Link to={BUYER_DASHBOARD_PATH} className="metricCard__link">
-              Open buyer dashboard →
-            </Link>
-          </div>
-        ) : null}
-
-        {sellerAccess ? (
-          <div className="metricCard metricCard--purple">
-            <div className="metricCard__label">Seller plan</div>
-            <div className="metricCard__value">{hasSellerSub ? 'Active' : 'Not subscribed'}</div>
-            <Link to={SELLER_DASHBOARD_PATH} className="metricCard__link">
-              Open seller dashboard →
-            </Link>
-          </div>
-        ) : null}
-
-        {buyerAccess ? (
-          <div className="metricCard metricCard--green">
-            <div className="metricCard__label">Browse catalog</div>
-            <div className="metricCard__value">Public products</div>
-            <Link to="/products" className="metricCard__link">
-              View product catalog →
-            </Link>
-          </div>
-        ) : null}
-
-        {sellerAccess ? (
-          <div className="metricCard metricCard--green">
-            <div className="metricCard__label">Product listings</div>
-            <div className="metricCard__value">Manage catalog</div>
-            <Link to="/seller/products" className="metricCard__link">
-              View your listings →
-            </Link>
-          </div>
-        ) : null}
-
-        {(buyerAccess && !hasBuyerSub) || (sellerAccess && !hasSellerSub) ? (
-          <div className="metricCard metricCard--amber">
-            <div className="metricCard__label">Subscriptions</div>
-            <div className="metricCard__value">Plans &amp; pricing</div>
-            <Link to="/pricing" className="metricCard__link">
-              View plans →
-            </Link>
-          </div>
-        ) : null}
-      </div>
+      <p className="sellerDashboard__sub">Checking your subscription…</p>
     </div>
   )
 }

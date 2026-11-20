@@ -16,9 +16,12 @@ const { getSnapshot }        = require('../middleware/metrics.js')
 const { prisma }             = require('../config/database.js')
 const { asyncHandler }       = require('../utils/asyncHandler.js')
 const env                    = require('../config/env.js')
+const { consumeTicket }      = require('../controllers/ssoController.js')
+const { ssoConsumeLimiter }  = require('../middleware/authRateLimiter.js')
 
 const router = Router()
 
+router.post('/sso/consume-ticket', ssoConsumeLimiter, consumeTicket)
 router.use('/auth',               authRoutes)
 router.use('/products',           productRoutes)
 router.use('/orders',             orderRoutes)

@@ -12,7 +12,7 @@ export const ROUTES = Object.freeze({
   HELP: '/help',
   CONTACT: '/contact',
 
-  LOGIN: '/login',
+  LOGIN: '/session-required',
 
   ADMIN_LOGIN: '/admin/login',
   ADMIN_ROOT: '/admin',

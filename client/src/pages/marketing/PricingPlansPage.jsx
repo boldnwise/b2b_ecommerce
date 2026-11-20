@@ -6,7 +6,6 @@ import { formatInr, getPlanAmounts, useMarketingPricing } from '../../utils/mark
 import { useAppSelector, useAppDispatch } from '../../hooks/redux.js'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useRazorpayCheckout } from '../../hooks/useRazorpayCheckout.js'
-import { setIntendedRoute } from '../../utils/authStorage.js'
 import {
   selectHasBuyerSubscription,
   selectHasSellerSubscription,
@@ -14,7 +13,6 @@ import {
   selectSellerPlanType,
   loadSubscriptionStatus,
 } from '../../store/slices/subscriptionSlice.js'
-import { setPendingCheckout } from '../../utils/pendingCheckout.js'
 import { PaymentCancelledNotice } from '../../components/common/PaymentCancelledNotice.jsx'
 
 const PRICING_PAGE_HTML_CLASS = 'isPricingPlansPage'
@@ -146,7 +144,7 @@ export function PricingPlansPage() {
   const dispatch = useAppDispatch()
   const marketingPricing = useMarketingPricing()
   const amounts = useMemo(() => getPlanAmounts(marketingPricing), [marketingPricing])
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, initialized } = useAuth()
   const { startCheckout, loadingPlan } = useRazorpayCheckout()
   const [paymentCancelled, setPaymentCancelled] = useState(false)
   const [lastPlanKey, setLastPlanKey] = useState(null)
@@ -168,10 +166,9 @@ export function PricingPlansPage() {
 
   const openRazorpay = useCallback(
     (planKey) => {
+      if (!initialized) return
       if (!isAuthenticated) {
-        setPendingCheckout(planKey)
-        setIntendedRoute('/pricing')
-        navigate('/login', { state: { from: { pathname: '/pricing' } } })
+        navigate('/session-required', { state: { from: { pathname: '/pricing' } } })
         return
       }
       setPaymentCancelled(false)
@@ -189,7 +186,7 @@ export function PricingPlansPage() {
         onError: (msg) => toast.error(msg),
       })
     },
-    [isAuthenticated, navigate, startCheckout, user],
+    [initialized, isAuthenticated, navigate, startCheckout, user],
   )
 
   useEffect(() => {

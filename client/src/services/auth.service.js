@@ -12,17 +12,6 @@ export async function loginRequest({ email, password }) {
   }
 }
 
-export async function registerRequest(payload) {
-  try {
-    const { data } = await api.post('/auth/register', payload)
-    if (!data.success) throw new Error(data.error?.message || 'Registration failed')
-    // Server sets the httpOnly auth cookie; only user object is returned in body.
-    return data.data
-  } catch (e) {
-    throwFriendly(e, 'Registration failed')
-  }
-}
-
 export async function fetchMeRequest() {
   try {
     const { data } = await api.get('/auth/me')
