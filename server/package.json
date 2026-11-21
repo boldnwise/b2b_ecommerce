@@ -30,6 +30,7 @@
     "db:ci:setup": "prisma generate && prisma migrate deploy && node prisma/seed/reset.js && npm run catalog:migrate && npm run catalog:seed",
     "db:seed:prod": "NODE_ENV=production node prisma/seed.js",
     "db:studio": "prisma studio",
+    "admin:create": "node scripts/create-admin.js",
     "catalog:migrate": "node src/db/migrate.js",
     "catalog:seed": "node src/db/migrate.js --seed",
     "render:build": "node scripts/render-build.js",

@@ -94,6 +94,9 @@ function SubscriptionExpiredOverlay() {
 
 /**
  * Single, composable route guard. Replaces per-concern guards.
+ *
+ * guestOnlyRedirectRoles: with guestOnly, only these signed-in roles are redirected;
+ * other signed-in roles see the page. Omit it to redirect every signed-in user.
  */
 export function ProtectedRoute({
   children,
@@ -102,6 +105,7 @@ export function ProtectedRoute({
   workspace,
   subscription,
   guestOnly = false,
+  guestOnlyRedirectRoles,
   redirectTo,
 }) {
   const location = useLocation()
@@ -137,7 +141,8 @@ export function ProtectedRoute({
   }
 
   if (guestOnly) {
-    if (isAuthenticated && user) {
+    const redirectsRole = !guestOnlyRedirectRoles || guestOnlyRedirectRoles.includes(user?.role)
+    if (isAuthenticated && user && redirectsRole) {
       return <Navigate to={redirectTo || dashboardForRole(user.role)} replace />
     }
     return children

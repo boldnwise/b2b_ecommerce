@@ -112,6 +112,40 @@ describe('POST /api/auth/login', () => {
     expect(JSON.stringify(res.body)).not.toContain('passwordHash')
   })
 
+  test('200 – admin login from a browser holding a buyer SSO session replaces that session', async () => {
+    prisma.user.findUnique.mockResolvedValue({ ...ADMIN, passwordHash: BUYER_PASSWORD_HASH })
+    const buyerSession = makeToken({ id: BUYER.id, email: BUYER.email, role: 'BUYER' })
+
+    const res = await agent
+      .post('/api/auth/login')
+      .set('Cookie', `auth_token=${buyerSession}`)
+      .send({ email: ADMIN.email, password: 'CorrectPassword1!' })
+
+    expect(res.status).toBe(200)
+    const authCookie = (res.headers['set-cookie'] ?? []).find((c) => c.startsWith('auth_token='))
+    const newToken = authCookie.split(';')[0].slice('auth_token='.length)
+    expect(newToken).not.toBe(buyerSession)
+    const claims = jwt.decode(newToken)
+    expect(claims.sub).toBe(ADMIN.id)
+    expect(claims.role).toBe('ADMIN')
+    expect(claims.authMethod).toBe('password')
+    expect(authCookie.toLowerCase()).toContain('httponly')
+  })
+
+  test('401 – failed admin login from a buyer session leaves the buyer cookie untouched', async () => {
+    prisma.user.findUnique.mockResolvedValue({ ...ADMIN, passwordHash: BUYER_PASSWORD_HASH })
+    const buyerSession = makeToken({ id: BUYER.id, email: BUYER.email, role: 'BUYER' })
+
+    const res = await agent
+      .post('/api/auth/login')
+      .set('Cookie', `auth_token=${buyerSession}`)
+      .send({ email: ADMIN.email, password: 'WrongPassword1!' })
+
+    expect(res.status).toBe(401)
+    const setCookie = res.headers['set-cookie'] ?? []
+    expect(setCookie.some((c) => c.startsWith('auth_token='))).toBe(false)
+  })
+
   test.each([
     ['BUYER', BUYER],
     ['SELLER', SELLER],

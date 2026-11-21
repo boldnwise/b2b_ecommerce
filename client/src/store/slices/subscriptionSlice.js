@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { fetchSubscriptionStatus } from '../../services/subscription.service.js'
-import { logout, logoutUser } from './authSlice.js'
+import { login, logout, logoutUser } from './authSlice.js'
 
 export const loadSubscriptionStatus = createAsyncThunk(
   'subscription/loadStatus',
@@ -120,6 +120,7 @@ const subscriptionSlice = createSlice({
         state.buyerPlanType = null
         state.subscriptions = []
       })
+      .addCase(login.fulfilled, resetSubscriptionState)
       .addCase(logout, resetSubscriptionState)
       .addCase(logoutUser.fulfilled, resetSubscriptionState)
       .addCase(logoutUser.rejected, resetSubscriptionState)

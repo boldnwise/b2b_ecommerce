@@ -223,7 +223,7 @@ export function AppRoutes() {
         <Route
           path="/admin/login"
           element={
-            <ProtectedRoute guestOnly>
+            <ProtectedRoute guestOnly guestOnlyRedirectRoles={['ADMIN']}>
               <AdminLogin />
             </ProtectedRoute>
           }
